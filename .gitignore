@@ -1,0 +1,12 @@
+# Secrets
+.env
+
+# Environments
+fin-agent-env/
+venv/
+__pycache__/
+
+# ML Artifacts
+models/*.zip
+models/*.json
+logs/*.log

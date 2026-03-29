@@ -1,0 +1,25 @@
+# --- ML & DATA (Conda-friendly) ---
+numpy>=1.26.0
+pandas>=2.1.0
+scikit-learn>=1.4.0
+yfinance>=0.2.30
+
+# --- INTELLIGENCE ---
+gymnasium==0.29.1
+stable-baselines3[extra]>=2.2.1
+langchain>=0.1.0
+langchain-google-genai>=1.0.0
+pydantic-ai-slim[google]
+transformers>=4.38.0
+# Matches Stable-Baselines3 requirements and optimized for Cloud Run
+torch>=2.3.1 --index-url https://download.pytorch.org/whl/cpu
+
+# --- INFRASTRUCTURE ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+supabase>=2.4.0
+pydantic-settings>=2.2.0
+python-dotenv>=1.0.0
+
+# --- MLOPS & UTILS ---
+loguru>=0.7.0
