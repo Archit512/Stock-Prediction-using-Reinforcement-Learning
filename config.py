@@ -1,39 +1,46 @@
 import os
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# --- MLOps: Windows/Intel OpenMP Fix ---
-# This prevents the 'libiomp5md.dll' crash on Windows machines
+# Technical Fix for HP Omen/Windows: Prevents library conflicts
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 class Settings(BaseSettings):
-    # --- Project Metadata ---
-    PROJECT_NAME: str = "Stock-AI"
-    VERSION: str = "1.0.0"
-    ENV: str = "development" # Change to 'production' on GCP
-    
-    # --- API Keys (Must exist in your .env file) ---
+    # --- 🏗️ INFRASTRUCTURE ---
+    PROJECT_NAME: str = "Stock-AI-Agent"
     SUPABASE_URL: str
     SUPABASE_KEY: str
+
+    # --- 🧠 AI BRAINS (LLM APIs) ---
     GEMINI_API_KEY: str
+    GROQ_API_KEY: str
+    HF_API_KEY: Optional[str] = None       # Hugging Face
+    COHERE_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: str
+
+    # --- 📈 MARKET DATA (News & Price) ---
     ALPHA_VANTAGE_KEY: str
     FINNHUB_KEY: str
     FMP_KEY: str
-    
-    # --- RL Hyperparameters (Centralized for MLOps) ---
-    INITIAL_BALANCE: float = 10000.0
-    TRANSACTION_FEE: float = 0.001  # 0.1% per trade
-    TIMESTEPS: int = 50000
-    
-    # --- Database Settings ---
-    MAX_DB_RETRIES: int = 3
-    
-    # Automatically look for a .env file in the root directory
-    model_config = SettingsConfigDict(env_file=".env")
 
-# Initialize the global settings object
+    # --- ⚙️ BOT LOGIC SETTINGS ---
+    # Max stocks to watch at once (to save API credits)
+    MAX_WATCHLIST_SIZE: int = 10
+    
+    # Consensus Threshold (How much LLMs must agree)
+    CONSENSUS_THRESHOLD: float = 0.3
+    
+    # Global Panic Threshold (0-10)
+    PANIC_THRESHOLD: int = 7
+
+    # This tells Pydantic to look for a .env file
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+# Initialize the settings object
 settings = Settings()
 
-# Optional: Print a success message for debugging
 if __name__ == "__main__":
-    print(f"✅ Configuration for {settings.PROJECT_NAME} loaded successfully.")
+    # Test print (hiding actual keys for safety)
+    print(f"✅ Configuration Loaded for: {settings.PROJECT_NAME}")
+    print(f"🔗 Supabase URL: {settings.SUPABASE_URL}")
+    print(f"🤖 Primary LLM: OpenRouter (Nemotron)")
