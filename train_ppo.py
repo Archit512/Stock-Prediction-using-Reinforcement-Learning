@@ -29,7 +29,7 @@ def train_brain():
     )
 
     # 4. Value Updation: Agent plays the 'game' of your past trades
-    logger.info("🧠 Training PPO Agent on MNNIT Market Data...")
+    logger.info("🧠 Training PPO Agent on Market Data...")
     model.learn(total_timesteps=20000)
 
     # 5. Save the 'Brain' for Google Cloud Deployment
