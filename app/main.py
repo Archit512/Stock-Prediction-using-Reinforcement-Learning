@@ -1,5 +1,5 @@
 from fastapi import FastAPI, BackgroundTasks
-from app.coordinator import TradingCoordinator
+from coordinator import TradingCoordinator
 from loguru import logger
 
 app = FastAPI(title="MNNIT Stock AI Agent")

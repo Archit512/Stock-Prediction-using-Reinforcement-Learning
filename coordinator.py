@@ -2,11 +2,11 @@ import time
 import sys
 from loguru import logger
 from config import settings
-from agents.data_fetcher import DataFetcher
-from agents.sentiment_agent import DualGroupAgent
-from agents.macro_agent import MacroSentinel
+from src.agents.data_fetcher import DataFetcher
+from src.agents.sentiment_agent import DualGroupAgent
+from src.agents.macro_agent import MacroSentinel
 from src.database import DatabaseManager
-from src.inference import TradingBrain
+from src.interference import TradingBrain
 
 # Configure logger 
 logger.remove()
