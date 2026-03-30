@@ -24,7 +24,7 @@ class DatabaseManager:
 
     def get_training_data(self):
         """Downloads all logs for the RL agent to study on your HP Omen."""
-        res = self.supabase.table("market_logs").select("*").order("created_at").execute()
+        res = self.supabase.table("market_signals").select("*").order("created_at").execute()
         import pandas as pd
         return pd.DataFrame(res.data)
 
