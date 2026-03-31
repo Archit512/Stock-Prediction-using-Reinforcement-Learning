@@ -3,6 +3,7 @@ numpy>=1.26.0
 pandas>=2.1.0
 scikit-learn>=1.4.0
 yfinance>=0.2.30
+requests>=2.31.0
 
 # --- INTELLIGENCE ---
 gymnasium==0.29.1
