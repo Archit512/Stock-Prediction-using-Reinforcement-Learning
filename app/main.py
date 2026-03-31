@@ -20,6 +20,6 @@ async def trigger_cycle(background_tasks: BackgroundTasks):
     
     # We use BackgroundTasks so the HTTP response returns immediately (200 OK)
     # while the bot works in the background.
-    background_tasks.add_task(coordinator.run_cycle)
+    background_tasks.add_task(coordinator.run_once)
     
     return {"message": "Trading cycle initiated"}
