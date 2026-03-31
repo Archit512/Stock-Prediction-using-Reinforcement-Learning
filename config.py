@@ -2,6 +2,8 @@ import os
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
+
 # Technical Fix for HP Omen/Windows: Prevents library conflicts
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 

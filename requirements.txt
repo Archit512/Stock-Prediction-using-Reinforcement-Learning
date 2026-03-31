@@ -23,3 +23,16 @@ python-dotenv>=1.0.0
 
 # --- MLOPS & UTILS ---
 loguru>=0.7.0
+
+# --- ADD THESE TO YOUR OLD FILE ---
+scipy>=1.10.0
+langchain-groq
+postgrest
+tqdm
+langchain-community
+openai 
+langchain_openai 
+langchain-google-genai
+langchain-groq 
+langchain-cohere
+langchain-huggingface

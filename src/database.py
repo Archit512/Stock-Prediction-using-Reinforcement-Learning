@@ -48,7 +48,7 @@ class DatabaseManager:
             "ticker": ticker,
             "price_at_signal": float(price),
             "sentiment_score": float(sentiment),
-            "headline": reasoning,
+            "headline": reasoning, 
             "status": status,
             "model_version": "v1-pavilion-ppo"
         }
