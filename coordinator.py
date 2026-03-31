@@ -1,6 +1,7 @@
 import time
 import sys
 import datetime # 🛠️ ADDED: To check real-world time
+from datetime import datetime as dt
 from loguru import logger
 from config import settings
 from src.agents.data_fetcher import DataFetcher
@@ -19,7 +20,7 @@ class TradingCoordinator:
         self.analyzer = DualGroupAgent()
         self.macro = MacroSentinel()
         self.db = DatabaseManager()
-        self.brain = TradingBrain()
+        # self.brain = TradingBrain()
         # 🗑️ REMOVED: self.cycle_count (No longer needed)
 
     def run_once(self):
@@ -104,6 +105,7 @@ class TradingCoordinator:
                 # --- SAFETY LAYER: Save price even if news fails ---
                 if not price:
                     logger.warning(f"⚠️ {ticker}: Price fetch failed, skipping.")
+                    self.db.mark_watchlist_analyzed(ticker)
                     continue
                 
                 # Try to fetch news and sentiment
@@ -112,8 +114,12 @@ class TradingCoordinator:
                 if news:
                     sentiment = self.analyzer.analyze(ticker, news[0]['headline'])
                     if sentiment:
-                        action, size = self.brain.get_action(0.01, sentiment.get('score', 0), panic_score)
-                        status = ["HOLD", "BUY", "SELL"][action] if action in [0, 1, 2] else "HOLD"
+                        if hasattr(self, "brain") and self.brain is not None:
+                            action, size = self.brain.get_action(0.01, sentiment.get('score', 0), panic_score)
+                            status = ["HOLD", "BUY", "SELL"][action] if action in [0, 1, 2] else "HOLD"
+                        else:
+                            status = "pending"
+                            logger.warning("⚠️ TradingBrain not initialized; logging pending signal only.")
                         self.db.log_market_data(ticker, price, sentiment.get('score', 0), 
                                                 sentiment.get('reason', ''), status)
                         logger.info(f"📊 {ticker}: {status} signal logged")
@@ -127,20 +133,58 @@ class TradingCoordinator:
                     logger.warning(f"⚠️ {ticker}: News unavailable, saving price only.")
                     self.db.log_market_data(ticker, price, 0.0, 
                                             "Price check (news fetch failed)", "price_only")
+
+                # Keep watchlist activity fresh for inactivity-based cleanup.
+                self.db.mark_watchlist_analyzed(ticker)
                     
         except Exception as e:
             logger.error(f"🚨 Error processing watchlist: {e}")
 
+    def _cleanup_watchlist_if_oversized(self, max_size=20):
+        """Remove most inactive non-holding tickers when watchlist size exceeds max_size."""
+        snapshot = self.db.get_watchlist_snapshot()
+        current_size = len(snapshot)
+
+        # Rule: if watchlist size <= 20, no removal.
+        if current_size <= max_size:
+            return
+
+        removable = [row for row in snapshot if not row.get("is_holding", False)]
+        if not removable:
+            logger.warning("⚠️ Watchlist > 20 but no non-holding tickers are removable.")
+            return
+
+        def _to_dt(value):
+            if not value:
+                return dt.min
+            try:
+                return dt.fromisoformat(str(value).replace("Z", "+00:00"))
+            except Exception:
+                return dt.min
+
+        # Most inactive first: oldest/null last_analyzed_at, then oldest added_at.
+        removable.sort(key=lambda row: (_to_dt(row.get("last_analyzed_at")), _to_dt(row.get("added_at"))))
+
+        remove_count = current_size - max_size
+        for row in removable[:remove_count]:
+            ticker = row.get("ticker")
+            if not ticker:
+                continue
+            self.db.remove_from_watchlist(ticker)
+            logger.info(f"🧹 Removed inactive ticker from watchlist: {ticker}")
+
     def _discover_new_stocks(self):
         """Scan market for new trading opportunities."""
         try:
+            self._cleanup_watchlist_if_oversized(max_size=20)
             news_items = self.fetcher.get_random_market_news(limit=5)
             current_watchlist = set(self.db.get_active_watchlist())
             
             for item in news_items:
                 ticker = item['ticker']
-                if ticker not in current_watchlist and len(current_watchlist) < 10:
+                if ticker not in current_watchlist and len(current_watchlist) < 20:
                     self.db.add_to_watchlist(ticker)
+                    current_watchlist.add(ticker)
                     logger.success(f"🆕 Added {ticker} to watchlist via {item['source']}")
         except Exception as e:
             logger.error(f"🚨 Error discovering new stocks: {e}")
