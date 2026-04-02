@@ -37,7 +37,7 @@ class TradingCoordinator:
         
         cycle_type = "🧠 HEAVY (Full AI & Discovery)" if is_hourly_cycle else "⚡ LIGHT (Macro & Price Sync)"
         
-        logger.info(f"--- 🏁 GOOGLE CLOUD EXECUTION START | Minute: {current_minute} | Mode: {cycle_type} ---")
+        logger.info(f"--- 🏁 AWS CLOUD EXECUTION START | Minute: {current_minute} | Mode: {cycle_type} ---")
 
         # --- 🛡️ 15-MINUTE ROUTINE: MACRO SAFETY CHECK ---
         logger.info("🌐 Fetching Global Macro Context...")
