@@ -20,6 +20,7 @@ class TradingCoordinator:
         self.analyzer = DualGroupAgent()
         self.macro = MacroSentinel()
         self.db = DatabaseManager()
+        self.initial_prices = {}
         # self.brain = TradingBrain()
         # 🗑️ REMOVED: self.cycle_count (No longer needed)
 
@@ -107,6 +108,19 @@ class TradingCoordinator:
                     logger.warning(f"⚠️ {ticker}: Price fetch failed, skipping.")
                     self.db.mark_watchlist_analyzed(ticker)
                     continue
+
+                # Light cycle should only sync price; avoid news/API spend every 15 minutes.
+                if not hourly:
+                    self.db.log_market_data(
+                        ticker,
+                        price,
+                        0.0,
+                        "Price sync only (non-hourly cycle)",
+                        "price_only"
+                    )
+                    self.db.mark_watchlist_analyzed(ticker)
+                    logger.info(f"💵 {ticker}: Price synced (light cycle)")
+                    continue
                 
                 # Try to fetch news and sentiment
                 news = self.fetcher.get_random_market_news(limit=1)
@@ -115,7 +129,17 @@ class TradingCoordinator:
                     sentiment = self.analyzer.analyze(ticker, news[0]['headline'])
                     if sentiment:
                         if hasattr(self, "brain") and self.brain is not None:
-                            action, size = self.brain.get_action(0.01, sentiment.get('score', 0), panic_score)
+                            initial_price = self.initial_prices.get(ticker)
+                            if initial_price is None:
+                                self.initial_prices[ticker] = float(price)
+                                initial_price = float(price)
+
+                            # Use relative move from initial tracked price as price_change feature.
+                            price_change = 0.0
+                            if initial_price:
+                                price_change = (float(price) - float(initial_price)) / float(initial_price)
+
+                            action, size = self.brain.get_action(price_change, sentiment.get('score', 0), panic_score)
                             status = ["HOLD", "BUY", "SELL"][action] if action in [0, 1, 2] else "HOLD"
                         else:
                             status = "pending"
