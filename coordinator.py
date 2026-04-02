@@ -65,11 +65,14 @@ class TradingCoordinator:
             logger.info("📋 Auditing Holdings (Price & Sentiment)...")
             self._process_holdings(hourly=True)
 
+            # Fetch hourly market news once and reuse across hourly tasks.
+            hourly_news_items = self.fetcher.get_random_market_news(limit=10)
+
             logger.info("👀 Evaluating Watchlist (AI & RL Brain)...")
-            self._process_watchlist(hourly=True, panic_score=panic_data['panic_score'])
+            self._process_watchlist(hourly=True, panic_score=panic_data['panic_score'], hourly_news_items=hourly_news_items)
 
             logger.info("🔭 Scanning Market for New Discoveries...")
-            self._discover_new_stocks()
+            self._discover_new_stocks(news_items=hourly_news_items)
             logger.info("🏁 HEAVY CYCLE COMPLETE. Exiting gracefully.")
 
     def _process_holdings(self, hourly=False, emergency=False):
@@ -92,13 +95,21 @@ class TradingCoordinator:
         except Exception as e:
             logger.error(f"🚨 Error processing holdings: {e}")
 
-    def _process_watchlist(self, hourly=False, panic_score=0):
+    def _process_watchlist(self, hourly=False, panic_score=0, hourly_news_items=None):
         """Evaluate watchlist stocks for trading signals."""
         try:
             watchlist = self.db.get_active_watchlist()
             if not watchlist:
                 logger.info("📋 Watchlist is empty.")
                 return
+
+            news_by_ticker = {}
+            if hourly and hourly_news_items:
+                for item in hourly_news_items:
+                    ticker = item.get("ticker")
+                    headline = item.get("headline")
+                    if ticker and headline and ticker not in news_by_ticker:
+                        news_by_ticker[ticker] = headline
             
             for ticker in watchlist[:5]:  # Limit to 5 to save API credits
                 price = self.fetcher.get_price(ticker)
@@ -122,11 +133,13 @@ class TradingCoordinator:
                     logger.info(f"💵 {ticker}: Price synced (light cycle)")
                     continue
                 
-                # Try to fetch news and sentiment
-                news = self.fetcher.get_random_market_news(limit=1)
-                
-                if news:
-                    sentiment = self.analyzer.analyze(ticker, news[0]['headline'])
+                # In hourly mode, reuse the single fetched news payload.
+                headline = news_by_ticker.get(ticker)
+                if not headline and hourly_news_items:
+                    headline = hourly_news_items[0].get("headline")
+
+                if headline:
+                    sentiment = self.analyzer.analyze(ticker, headline)
                     if sentiment:
                         if hasattr(self, "brain") and self.brain is not None:
                             initial_price = self.initial_prices.get(ticker)
@@ -197,11 +210,12 @@ class TradingCoordinator:
             self.db.remove_from_watchlist(ticker)
             logger.info(f"🧹 Removed inactive ticker from watchlist: {ticker}")
 
-    def _discover_new_stocks(self):
+    def _discover_new_stocks(self, news_items=None):
         """Scan market for new trading opportunities."""
         try:
             self._cleanup_watchlist_if_oversized(max_size=10)
-            news_items = self.fetcher.get_random_market_news(limit=5)
+            if news_items is None:
+                news_items = self.fetcher.get_random_market_news(limit=5)
             current_watchlist = set(self.db.get_active_watchlist())
             
             for item in news_items:
