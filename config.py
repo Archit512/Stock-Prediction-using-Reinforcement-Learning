@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     MAX_WATCHLIST_SIZE: int = 10
     
     # Consensus Threshold (How much LLMs must agree)
-    CONSENSUS_THRESHOLD: float = 0.3
+    CONSENSUS_THRESHOLD: float = 0.35
     
     # Global Panic Threshold (0-10)
     PANIC_THRESHOLD: int = 7
