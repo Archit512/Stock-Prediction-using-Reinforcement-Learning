@@ -19,7 +19,7 @@ class TradingCoordinator:
         self.analyzer = DualGroupAgent()
         self.macro = MacroSentinel()
         self.db = DatabaseManager()
-        self.brain = TradingBrain()
+        # self.brain = TradingBrain()
         # 🗑️ REMOVED: self.cycle_count (No longer needed)
 
     def run_once(self):
