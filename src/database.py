@@ -23,13 +23,14 @@ class DatabaseManager:
     # --- MACRO & REGIME ---
     def update_macro_status(self, panic_score, reason):
         """Logs the global panic level from MacroSentinel."""
+        # Note: You need the macro_status table in your SQL for this to work
         data = {
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "panic_score": panic_score,
             "reason": reason,
             "regime": "CRASH" if panic_score > 7.5 else "NORMAL"
         }
-        # Insert a new row each time so panic events are preserved
+        # Insert a new row each time so panic events are preserved instead of overwriting id=1.
         self.supabase.table("macro_status").insert(data).execute()
 
     # --- WATCHLIST & DISCOVERY ---
