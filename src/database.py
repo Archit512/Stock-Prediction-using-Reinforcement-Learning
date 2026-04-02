@@ -2,6 +2,7 @@ from supabase import create_client, Client
 from config import settings
 from loguru import logger
 import pandas as pd
+from datetime import datetime, timezone
 
 class DatabaseManager:
     def __init__(self):
@@ -39,6 +40,21 @@ class DatabaseManager:
     def add_to_watchlist(self, ticker):
         """Adds a newly discovered stock to the tracking list."""
         self.supabase.table("watchlist").upsert({"ticker": ticker}).execute()
+
+    def remove_from_watchlist(self, ticker):
+        """Removes a ticker from the watchlist."""
+        self.supabase.table("watchlist").delete().eq("ticker", ticker).execute()
+
+    def get_watchlist_snapshot(self):
+        """Returns watchlist rows for cleanup and activity checks."""
+        res = self.supabase.table("watchlist").select("ticker,is_holding,last_analyzed_at,added_at").execute()
+        return res.data or []
+
+    def mark_watchlist_analyzed(self, ticker):
+        """Updates analysis timestamp for activity tracking."""
+        self.supabase.table("watchlist").update(
+            {"last_analyzed_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("ticker", ticker).execute()
 
     def get_portfolio_holdings(self):
         """Returns tickers that we currently own (where is_holding = True)."""
