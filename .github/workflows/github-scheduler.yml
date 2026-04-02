@@ -1,0 +1,38 @@
+name: GitHub Scheduler - Trading Cycle
+
+on:
+  schedule:
+    # Run continuously every 15 minutes, all days.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: trading-cycle-scheduler
+  cancel-in-progress: false
+
+jobs:
+  trigger-cloud-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Trigger run-cycle endpoint
+        env:
+          RUN_CYCLE_URL: ${{ secrets.RUN_CYCLE_URL }}
+          RUN_CYCLE_BEARER_TOKEN: ${{ secrets.RUN_CYCLE_BEARER_TOKEN }}
+        run: |
+          if [ -z "$RUN_CYCLE_URL" ]; then
+            echo "Missing RUN_CYCLE_URL secret"
+            exit 1
+          fi
+
+          if [ -n "$RUN_CYCLE_BEARER_TOKEN" ]; then
+            curl --fail --show-error --silent \
+              --request POST \
+              --header "Authorization: Bearer $RUN_CYCLE_BEARER_TOKEN" \
+              "$RUN_CYCLE_URL"
+          else
+            curl --fail --show-error --silent \
+              --request POST \
+              "$RUN_CYCLE_URL"
+          fi

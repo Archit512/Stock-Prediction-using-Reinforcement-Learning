@@ -140,18 +140,18 @@ class TradingCoordinator:
         except Exception as e:
             logger.error(f"🚨 Error processing watchlist: {e}")
 
-    def _cleanup_watchlist_if_oversized(self, max_size=20):
+    def _cleanup_watchlist_if_oversized(self, max_size=10):
         """Remove most inactive non-holding tickers when watchlist size exceeds max_size."""
         snapshot = self.db.get_watchlist_snapshot()
         current_size = len(snapshot)
 
-        # Rule: if watchlist size <= 20, no removal.
+        # Rule: if watchlist size <= 10, no removal.
         if current_size <= max_size:
             return
 
         removable = [row for row in snapshot if not row.get("is_holding", False)]
         if not removable:
-            logger.warning("⚠️ Watchlist > 20 but no non-holding tickers are removable.")
+            logger.warning("⚠️ Watchlist > 10 but no non-holding tickers are removable.")
             return
 
         def _to_dt(value):
@@ -176,13 +176,13 @@ class TradingCoordinator:
     def _discover_new_stocks(self):
         """Scan market for new trading opportunities."""
         try:
-            self._cleanup_watchlist_if_oversized(max_size=20)
+            self._cleanup_watchlist_if_oversized(max_size=10)
             news_items = self.fetcher.get_random_market_news(limit=5)
             current_watchlist = set(self.db.get_active_watchlist())
             
             for item in news_items:
                 ticker = item['ticker']
-                if ticker not in current_watchlist and len(current_watchlist) < 20:
+                if ticker not in current_watchlist and len(current_watchlist) < 10:
                     self.db.add_to_watchlist(ticker)
                     current_watchlist.add(ticker)
                     logger.success(f"🆕 Added {ticker} to watchlist via {item['source']}")
