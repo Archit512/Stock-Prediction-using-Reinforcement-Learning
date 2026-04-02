@@ -11,18 +11,18 @@ class DataFetcher:
         self.fmp_key = settings.FMP_KEY
         self.alpha_key = settings.ALPHA_VANTAGE_KEY
         
-        # 🛠️ Session with a real Browser Header and Proxy
+        # Session with a browser-like header.
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
         })
         
-        # Explicit proxy configuration
-        self.proxies = {
-            "http": "http://172.31.100.25:3128", 
-            "https": "http://172.31.100.25:3128"
-        }
-        self.session.proxies.update(self.proxies)
+        # Proxy dependency disabled intentionally.
+        # self.proxies = {
+        #     "http": "http://172.31.100.25:3128",
+        #     "https": "http://172.31.100.25:3128"
+        # }
+        # self.session.proxies.update(self.proxies)
 
     def get_random_market_news(self, limit: int = 15) -> List[Dict]:
         """Discovery Hierarchy: Alpha Vantage -> FMP -> yfinance"""
