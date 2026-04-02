@@ -25,11 +25,13 @@ class DatabaseManager:
         """Logs the global panic level from MacroSentinel."""
         # Note: You need the macro_status table in your SQL for this to work
         data = {
+            "updated_at": datetime.now(timezone.utc).isoformat(),
             "panic_score": panic_score,
             "reason": reason,
             "regime": "CRASH" if panic_score > 7.5 else "NORMAL"
         }
-        self.supabase.table("macro_status").upsert({"id": 1, **data}).execute()
+        # Insert a new row each time so panic events are preserved instead of overwriting id=1.
+        self.supabase.table("macro_status").insert(data).execute()
 
     # --- WATCHLIST & DISCOVERY ---
     def get_active_watchlist(self):
