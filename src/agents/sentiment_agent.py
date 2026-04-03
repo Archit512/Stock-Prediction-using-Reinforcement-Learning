@@ -143,8 +143,8 @@ class DualGroupAgent:
 
         if op1 and op2:
             diff = abs(op1['sentiment_score'] - op2['sentiment_score'])
+            avg = round((op1['sentiment_score'] + op2['sentiment_score']) / 2, 2)
             if diff <= settings.CONSENSUS_THRESHOLD:
-                avg = round((op1['sentiment_score'] + op2['sentiment_score']) / 2, 2)
                 logger.success(f"✅ Consensus: {avg}")
                 return {"score": avg, "reason": op1['reasoning'], "status": "VERIFIED"}
             else:
