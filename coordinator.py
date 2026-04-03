@@ -111,7 +111,7 @@ class TradingCoordinator:
                     if ticker and headline and ticker not in news_by_ticker:
                         news_by_ticker[ticker] = headline
             
-            for ticker in watchlist[:5]:  # Limit to 5 to save API credits
+            for ticker in watchlist[:10]:  # Limit to 5 to save API credits
                 price = self.fetcher.get_price(ticker)
                 
                 # --- SAFETY LAYER: Save price even if news fails ---
