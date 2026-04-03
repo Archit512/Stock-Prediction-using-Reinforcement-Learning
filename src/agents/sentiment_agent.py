@@ -142,15 +142,23 @@ class DualGroupAgent:
         op2 = self._get_group2_opinion(ticker, headline)
 
         if op1 and op2:
-            diff = abs(op1['sentiment_score'] - op2['sentiment_score'])
+            a = op1['sentiment_score']
+            b = op2['sentiment_score']
             avg = round((op1['sentiment_score'] + op2['sentiment_score']) / 2, 2)
-            if diff <= settings.CONSENSUS_THRESHOLD:
-                logger.success(f"✅ Consensus: {avg}")
-                return {"score": avg, "reason": op1['reasoning'], "status": "VERIFIED"}
-            else:
-                logger.error(f"❌ Hallucination Detected (Diff: {diff:.2f}).")
-                # FIXED: Return neutral response instead of None
-                return {"score": avg, "reason": "Conflicting AI opinions detected", "status": "CONFLICT"}
+
+            if((a > 0 and b > 0) or (a < 0 and b < 0)) :
+                    return {"score": avg, "reason": op1['reasoning'], "status": "VERIFIED"}
+           
+            if((a < 0 and b > 0) or (a > 0 and b < 0)) :
+                diff = abs(op1['sentiment_score'] - op2['sentiment_score'])
+                
+                if diff <= settings.CONSENSUS_THRESHOLD:
+                        logger.success(f"✅ Consensus: {avg}")
+                        return {"score": avg, "reason": op1['reasoning'], "status": "CONFLICT"}
+                else:
+                        logger.error(f"❌ Hallucination Detected (Diff: {diff:.2f}).")
+                        # FIXED: Return neutral response instead of None
+                        return {"score": avg, "reason": "Conflicting AI opinions detected", "status": "CONFLICT"}
 
         survivor = op1 or op2
         if survivor:
