@@ -239,24 +239,89 @@ class TradingCoordinator:
                 self.db.remove_from_watchlist(ticker)
                 logger.info(f"🧹 Evicted {ticker} from watchlist (Tracked for {min_days_to_keep}+ days)")
 
+    def _evict_one_inactive_non_holding(self, min_days_to_keep=7):
+        """
+        Evict exactly one stock to free a watchlist slot.
+        Eligibility: not a holding and tracked for at least min_days_to_keep days.
+        Selection: least recently analyzed first.
+        """
+        snapshot = self.db.get_watchlist_snapshot()
+        now = dt.now(datetime.timezone.utc)
+        candidates = []
+
+        for row in snapshot:
+            if row.get("is_holding", False):
+                continue
+
+            added_at_str = str(row.get("added_at")).replace("Z", "+00:00")
+            try:
+                added_at = dt.fromisoformat(added_at_str)
+                if added_at.tzinfo is None:
+                    added_at = added_at.replace(tzinfo=datetime.timezone.utc)
+            except Exception:
+                added_at = dt.min.replace(tzinfo=datetime.timezone.utc)
+
+            days_tracked = (now - added_at).days
+            if days_tracked >= min_days_to_keep:
+                candidates.append(row)
+
+        if not candidates:
+            return None
+
+        def _to_dt(value):
+            if not value:
+                return dt.min.replace(tzinfo=datetime.timezone.utc)
+            try:
+                parsed = dt.fromisoformat(str(value).replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+                return parsed
+            except Exception:
+                return dt.min.replace(tzinfo=datetime.timezone.utc)
+
+        victim = min(candidates, key=lambda row: _to_dt(row.get("last_analyzed_at")))
+        victim_ticker = victim.get("ticker")
+        if victim_ticker:
+            self.db.remove_from_watchlist(victim_ticker)
+            logger.info(
+                f"🧹 Evicted {victim_ticker} (inactive, non-holding, tracked {min_days_to_keep}+ days)"
+            )
+        return victim_ticker
+
     def _discover_new_stocks(self, news_items=None):
         """Scan market for new trading opportunities."""
         try:
-            # Passes our 7-day minimum rule implicitly
-            self._cleanup_watchlist_if_oversized(max_size=10, min_days_to_keep=7)
-            
             if news_items is None:
                 news_items = self.fetcher.get_random_market_news(limit=5)
+
             current_watchlist = set(self.db.get_active_watchlist())
-            
+            max_watchlist_size = 10
+
             for item in news_items:
-                ticker = item['ticker']
-                if ticker not in current_watchlist:
+                ticker = item.get("ticker")
+                source = item.get("source", "unknown source")
+                if not ticker:
+                    continue
+
+                if ticker in current_watchlist:
+                    continue
+
+                if len(current_watchlist) < max_watchlist_size:
                     self.db.add_to_watchlist(ticker)
                     current_watchlist.add(ticker)
-                    logger.success(f"🆕 Added {ticker} to watchlist via {item['source']}")
+                    logger.success(f"🆕 Added {ticker} to watchlist via {source}")
+                    continue
 
-            self._cleanup_watchlist_if_oversized(max_size=10)
+                evicted_ticker = self._evict_one_inactive_non_holding(min_days_to_keep=7)
+                if evicted_ticker:
+                    current_watchlist.discard(evicted_ticker)
+                    self.db.add_to_watchlist(ticker)
+                    current_watchlist.add(ticker)
+                    logger.success(f"🆕 Added {ticker} to watchlist via {source} after evicting {evicted_ticker}")
+                else:
+                    logger.info(
+                        f"⏭️ Skipped {ticker}: watchlist full and no eligible inactive non-holding (7+ days) to evict"
+                    )
         except Exception as e:
             logger.error(f"🚨 Error discovering new stocks: {e}")
 
