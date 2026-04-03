@@ -26,11 +26,15 @@ class DualGroupAgent:
     def _call_llm(self, llm, ticker, headline) -> Optional[dict]:
         try:
             chain = self.prompt | llm | self.parser
-            return chain.invoke({
+            result = chain.invoke({
                 "ticker": ticker,
                 "headline": headline,
                 "format_instructions": self.parser.get_format_instructions()
             })
+            # Convert Pydantic model to dict if needed
+            if hasattr(result, 'dict'):
+                return result.dict()
+            return result
         except Exception as e:
             logger.debug(f"LLM Error: {e}")
             return None
