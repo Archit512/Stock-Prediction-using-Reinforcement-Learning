@@ -91,7 +91,7 @@ class TradingCoordinator:
                         sentiment = self.analyzer.analyze(ticker, f"Brief sentiment for {ticker}")
                         if sentiment:
                             self.db.log_market_data(ticker, price, sentiment.get('score', 0), 
-                                                    sentiment.get('reason', ''), 'monitoring')
+                                                    sentiment.get('reason', ''), status='monitoring')
         except Exception as e:
             logger.error(f"🚨 Error processing holdings: {e}")
 
@@ -127,7 +127,7 @@ class TradingCoordinator:
                         price,
                         0.0,
                         "Price sync only (non-hourly cycle)",
-                        "price_only"
+                        status="price_only"
                     )
                     self.db.mark_watchlist_analyzed(ticker)
                     logger.info(f"💵 {ticker}: Price synced (light cycle)")
@@ -158,18 +158,18 @@ class TradingCoordinator:
                             status = "pending"
                             logger.warning("⚠️ TradingBrain not initialized; logging pending signal only.")
                         self.db.log_market_data(ticker, price, sentiment.get('score', 0), 
-                                                sentiment.get('reason', ''), status)
+                                                sentiment.get('reason', ''), headline=headline, status=status)
                         logger.info(f"📊 {ticker}: {status} signal logged")
                     else:
                         # News exists but sentiment analysis failed → save price anyway
                         logger.warning(f"⚠️ {ticker}: Sentiment analysis failed, saving price only.")
                         self.db.log_market_data(ticker, price, 0.0, 
-                                                "News fetched but sentiment analysis unavailable", "pending")
+                                                "News fetched but sentiment analysis unavailable", headline=headline, status="pending")
                 else:
                     # News fetch failed → save price with neutral sentiment
                     logger.warning(f"⚠️ {ticker}: News unavailable, saving price only.")
                     self.db.log_market_data(ticker, price, 0.0, 
-                                            "Price check (news fetch failed)", "price_only")
+                                            "Price check (news fetch failed)", headline=headline, status="price_only")
 
                 # Keep watchlist activity fresh for inactivity-based cleanup.
                 self.db.mark_watchlist_analyzed(ticker)
@@ -213,17 +213,18 @@ class TradingCoordinator:
     def _discover_new_stocks(self, news_items=None):
         """Scan market for new trading opportunities."""
         try:
-            self._cleanup_watchlist_if_oversized(max_size=10)
             if news_items is None:
                 news_items = self.fetcher.get_random_market_news(limit=5)
             current_watchlist = set(self.db.get_active_watchlist())
             
             for item in news_items:
                 ticker = item['ticker']
-                if ticker not in current_watchlist and len(current_watchlist) < 10:
+                if ticker not in current_watchlist:
                     self.db.add_to_watchlist(ticker)
                     current_watchlist.add(ticker)
                     logger.success(f"🆕 Added {ticker} to watchlist via {item['source']}")
+
+            self._cleanup_watchlist_if_oversized(max_size=10)
         except Exception as e:
             logger.error(f"🚨 Error discovering new stocks: {e}")
 
