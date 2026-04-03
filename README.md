@@ -81,7 +81,7 @@ Stock-Prediction-using-Reinforcement-Learning/
 ### 1. Clone and enter project
 
 ```bash
-git clone <your-repo-url>
+git clone <https://github.com/Archit512/Stock-Prediction-using-Reinforcement-Learning>
 cd Stock-Prediction-using-Reinforcement-Learning
 ```
 
