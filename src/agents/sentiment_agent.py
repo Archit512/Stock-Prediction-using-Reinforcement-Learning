@@ -150,7 +150,7 @@ class DualGroupAgent:
             else:
                 logger.error(f"❌ Hallucination Detected (Diff: {diff:.2f}).")
                 # FIXED: Return neutral response instead of None
-                return {"score": 0.0, "reason": "Conflicting AI opinions detected", "status": "CONFLICT"}
+                return {"score": avg, "reason": "Conflicting AI opinions detected", "status": "CONFLICT"}
 
         survivor = op1 or op2
         if survivor:
