@@ -25,6 +25,33 @@ Core workflow:
 
 ## Repository Structure
 
+```text
+Stock-Prediction-using-Reinforcement-Learning/
+├── .env
+├── .gitignore
+├── README.md
+├── requirements.txt
+├── config.py
+├── coordinator.py
+├── train_ppo.py
+├── test_config.py
+├── app/
+│   └── main.py
+└── src/
+	├── __init__.py
+	├── database.py
+	├── inference.py
+	├── env/
+	├── rl_env/
+	│   └── cloud_env.py
+	└── agents/
+		├── __init__.py
+		├── data_fetcher.py
+		├── sentiment_agent.py
+		├── macro_agent.py
+		└── test_llm_datafetcher.py
+```
+
 - [coordinator.py](coordinator.py): Main orchestration loop and cycle logic
 - [train_ppo.py](train_ppo.py): RL training entry point using PPO
 - [config.py](config.py): Environment-based settings via Pydantic
