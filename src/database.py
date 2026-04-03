@@ -41,7 +41,12 @@ class DatabaseManager:
 
     def add_to_watchlist(self, ticker):
         """Adds a newly discovered stock to the tracking list."""
-        self.supabase.table("watchlist").upsert({"ticker": ticker}).execute()
+        now = datetime.now(timezone.utc).isoformat()
+        self.supabase.table("watchlist").upsert({
+            "ticker": ticker,
+            "added_at": now,
+            "last_analyzed_at": now,
+        }).execute()
 
     def remove_from_watchlist(self, ticker):
         """Removes a ticker from the watchlist."""
@@ -54,8 +59,9 @@ class DatabaseManager:
 
     def mark_watchlist_analyzed(self, ticker):
         """Updates analysis timestamp for activity tracking."""
+        now = datetime.now(timezone.utc).isoformat()
         self.supabase.table("watchlist").update(
-            {"last_analyzed_at": datetime.now(timezone.utc).isoformat()}
+            {"last_analyzed_at": now}
         ).eq("ticker", ticker).execute()
 
     def get_portfolio_holdings(self):
@@ -64,13 +70,14 @@ class DatabaseManager:
         return [item['ticker'] for item in res.data]
 
     # --- MLOPS & LOGGING ---
-    def log_market_data(self, ticker, price, sentiment, reasoning, status="pending"):
-        """The core logging function for the RL training pipeline."""
+    def log_market_data(self, ticker, price, sentiment, log, headline=None, status="pending"):
+        """Consolidated logging for AI signals, price, and headlines."""
         data = {
             "ticker": ticker,
             "price_at_signal": float(price),
             "sentiment_score": float(sentiment),
-            "headline": reasoning, 
+            "logs": log,  # Matches the renamed column
+            "headline": headline,    # Matches the new column
             "status": status,
             "model_version": "v1-pavilion-ppo"
         }
