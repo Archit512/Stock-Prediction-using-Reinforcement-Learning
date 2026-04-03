@@ -111,7 +111,7 @@ class TradingCoordinator:
                     if ticker and headline and ticker not in news_by_ticker:
                         news_by_ticker[ticker] = headline
             
-            for ticker in watchlist[:5]:  # Limit to 5 to save API credits
+            for ticker in watchlist[:10]:  # Limit to 10 to save API credits
                 price = self.fetcher.get_price(ticker)
                 
                 # --- SAFETY LAYER: Save price even if news fails ---
@@ -135,8 +135,6 @@ class TradingCoordinator:
                 
                 # In hourly mode, reuse the single fetched news payload.
                 headline = news_by_ticker.get(ticker)
-                if not headline and hourly_news_items:
-                    headline = hourly_news_items[0].get("headline")
 
                 if headline:
                     sentiment = self.analyzer.analyze(ticker, headline)
@@ -177,42 +175,76 @@ class TradingCoordinator:
         except Exception as e:
             logger.error(f"🚨 Error processing watchlist: {e}")
 
-    def _cleanup_watchlist_if_oversized(self, max_size=10):
-        """Remove most inactive non-holding tickers when watchlist size exceeds max_size."""
+    def _cleanup_watchlist_if_oversized(self, max_size=10, min_days_to_keep=7):
+        """
+        Remove older non-holding tickers when watchlist size exceeds max_size.
+        Enforces a strict minimum tracking window (default 7 days) to ensure
+        high-quality continuous data for RL training.
+        """
         snapshot = self.db.get_watchlist_snapshot()
         current_size = len(snapshot)
 
-        # Rule: if watchlist size <= 10, no removal.
+        # Rule: if watchlist size <= 10, no removal needed.
         if current_size <= max_size:
             return
 
-        removable = [row for row in snapshot if not row.get("is_holding", False)]
-        if not removable:
-            logger.warning("⚠️ Watchlist > 10 but no non-holding tickers are removable.")
+        # Use timezone-aware UTC time for accurate age calculation
+        now = dt.now(datetime.timezone.utc)
+        removable_candidates = []
+
+        # 1. Filter out Holdings AND Immune stocks (added recently)
+        for row in snapshot:
+            if row.get("is_holding", False):
+                continue
+                
+            # Parse the added_at date safely
+            added_at_str = str(row.get("added_at")).replace("Z", "+00:00")
+            try:
+                added_at = dt.fromisoformat(added_at_str)
+                # If the database returns a naive datetime, force it to UTC
+                if added_at.tzinfo is None:
+                    added_at = added_at.replace(tzinfo=datetime.timezone.utc)
+            except Exception:
+                # If parsing completely fails, fallback to an old date so it can be cleaned up
+                added_at = dt.min.replace(tzinfo=datetime.timezone.utc)
+
+            # Calculate how many days it has been on the list
+            days_tracked = (now - added_at).days
+
+            # Only mark as removable if it has outlived its immunity phase
+            if days_tracked >= min_days_to_keep:
+                removable_candidates.append(row)
+
+        # If all extra stocks are still within their 7-day immunity, we don't delete anything.
+        if not removable_candidates:
+            logger.info(f"⚠️ Watchlist is at {current_size}, but all non-holdings are protected by the {min_days_to_keep}-day immunity. Skipping cleanup.")
             return
 
+        # 2. Sort the removable ones by least recently analyzed
         def _to_dt(value):
-            if not value:
-                return dt.min
-            try:
-                return dt.fromisoformat(str(value).replace("Z", "+00:00"))
-            except Exception:
-                return dt.min
+            if not value: return dt.min.replace(tzinfo=datetime.timezone.utc)
+            try: 
+                d = dt.fromisoformat(str(value).replace("Z", "+00:00"))
+                if d.tzinfo is None: d = d.replace(tzinfo=datetime.timezone.utc)
+                return d
+            except Exception: return dt.min.replace(tzinfo=datetime.timezone.utc)
 
-        # Most inactive first: oldest/null last_analyzed_at, then oldest added_at.
-        removable.sort(key=lambda row: (_to_dt(row.get("last_analyzed_at")), _to_dt(row.get("added_at"))))
+        removable_candidates.sort(key=lambda row: _to_dt(row.get("last_analyzed_at")))
 
+        # 3. Evict until we are back down to max_size (or we run out of unprotected candidates)
         remove_count = current_size - max_size
-        for row in removable[:remove_count]:
+        for row in removable_candidates[:remove_count]:
             ticker = row.get("ticker")
-            if not ticker:
-                continue
-            self.db.remove_from_watchlist(ticker)
-            logger.info(f"🧹 Removed inactive ticker from watchlist: {ticker}")
+            if ticker:
+                self.db.remove_from_watchlist(ticker)
+                logger.info(f"🧹 Evicted {ticker} from watchlist (Tracked for {min_days_to_keep}+ days)")
 
     def _discover_new_stocks(self, news_items=None):
         """Scan market for new trading opportunities."""
         try:
+            # Passes our 7-day minimum rule implicitly
+            self._cleanup_watchlist_if_oversized(max_size=10, min_days_to_keep=7)
+            
             if news_items is None:
                 news_items = self.fetcher.get_random_market_news(limit=5)
             current_watchlist = set(self.db.get_active_watchlist())
@@ -231,9 +263,7 @@ class TradingCoordinator:
 # 🛠️ UPDATED EXECUTION BLOCK
 if __name__ == "__main__":
     bot = TradingCoordinator()
-    # 🗑️ REMOVED: bot.start() and the while loop
     
-    # Just run it exactly once and let the script naturally end
     try:
         bot.run_once()
     except Exception as e:
