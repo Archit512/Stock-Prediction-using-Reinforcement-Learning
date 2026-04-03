@@ -48,14 +48,16 @@ class TradingCoordinator:
         
         if panic_data['regime'] == "CRASH":
             logger.critical(f"🚨 GLOBAL CRASH DETECTED ({panic_data['panic_score']}/10). HALTING BUYS.")
-            self._process_holdings(hourly=is_hourly_cycle, emergency=True) 
+            # 🛠️ FIX: Pass panic_score downward
+            self._process_holdings(hourly=is_hourly_cycle, emergency=True, panic_score=panic_data['panic_score']) 
             logger.info("🏁 EXECUTION COMPLETE. Exiting.")
             return
 
         # --- 15-MINUTE ROUTINE: PRICE SYNC ---
         if not is_hourly_cycle:
             logger.info("📋 Quick Sync: Updating prices for Holdings & Watchlist...")
-            self._process_holdings(hourly=False)
+            # 🛠️ FIX: Pass panic_score downward
+            self._process_holdings(hourly=False, panic_score=panic_data['panic_score'])
             self._process_watchlist(hourly=False, panic_score=panic_data['panic_score'])
             logger.info("🏁 LIGHT CYCLE COMPLETE. Exiting gracefully.")
             return 
@@ -63,7 +65,8 @@ class TradingCoordinator:
         # --- 🧠 HOURLY ROUTINE: FULL AI PIPELINE ---
         if is_hourly_cycle:
             logger.info("📋 Auditing Holdings (Price & Sentiment)...")
-            self._process_holdings(hourly=True)
+            # 🛠️ FIX: Pass panic_score downward
+            self._process_holdings(hourly=True, panic_score=panic_data['panic_score'])
 
             # Fetch hourly market news once and reuse across hourly tasks.
             hourly_news_items = self.fetcher.get_random_market_news(limit=10)
@@ -75,7 +78,8 @@ class TradingCoordinator:
             self._discover_new_stocks(news_items=hourly_news_items)
             logger.info("🏁 HEAVY CYCLE COMPLETE. Exiting gracefully.")
 
-    def _process_holdings(self, hourly=False, emergency=False):
+    # 🛠️ FIX: Added panic_score=0 to signature to resolve NameError
+    def _process_holdings(self, hourly=False, emergency=False, panic_score=0):
         """Audit and rebalance current holdings."""
         try:
             holdings = self.db.get_portfolio_holdings()
@@ -90,8 +94,9 @@ class TradingCoordinator:
                     if not emergency:
                         sentiment = self.analyzer.analyze(ticker, f"Brief sentiment for {ticker}")
                         if sentiment:
+                            # 🛠️ FIX: Uses the local panic_score variable passed in the signature
                             self.db.log_market_data(ticker, price, sentiment.get('score', 0), 
-                                                    sentiment.get('reason', ''), status='monitoring')
+                                                    sentiment.get('reason', ''), status='monitoring', panic_score=panic_score)
         except Exception as e:
             logger.error(f"🚨 Error processing holdings: {e}")
 
@@ -127,7 +132,8 @@ class TradingCoordinator:
                         price,
                         0.0,
                         "Price sync only (non-hourly cycle)",
-                        status="price_only"
+                        status="price_only",
+                        panic_score=panic_score
                     )
                     self.db.mark_watchlist_analyzed(ticker)
                     logger.info(f"💵 {ticker}: Price synced (light cycle)")
@@ -156,18 +162,18 @@ class TradingCoordinator:
                             status = "pending"
                             logger.warning("⚠️ TradingBrain not initialized; logging pending signal only.")
                         self.db.log_market_data(ticker, price, sentiment.get('score', 0), 
-                                                sentiment.get('reason', ''), headline=headline, status=status)
+                                                sentiment.get('reason', ''), headline=headline, status=status, panic_score=panic_score)
                         logger.info(f"📊 {ticker}: {status} signal logged")
                     else:
                         # News exists but sentiment analysis failed → save price anyway
                         logger.warning(f"⚠️ {ticker}: Sentiment analysis failed, saving price only.")
                         self.db.log_market_data(ticker, price, 0.0, 
-                                                "News fetched but sentiment analysis unavailable", headline=headline, status="pending")
+                                                "News fetched but sentiment analysis unavailable", headline=headline, status="pending", panic_score=panic_score)
                 else:
                     # News fetch failed → save price with neutral sentiment
                     logger.warning(f"⚠️ {ticker}: News unavailable, saving price only.")
                     self.db.log_market_data(ticker, price, 0.0, 
-                                            "Price check (news fetch failed)", headline=headline, status="price_only")
+                                            "Price check (news fetch failed)", headline=headline, status="price_only", panic_score=panic_score)
 
                 # Keep watchlist activity fresh for inactivity-based cleanup.
                 self.db.mark_watchlist_analyzed(ticker)

@@ -23,14 +23,13 @@ class DatabaseManager:
     # --- MACRO & REGIME ---
     def update_macro_status(self, panic_score, reason):
         """Logs the global panic level from MacroSentinel."""
-        # Note: You need the macro_status table in your SQL for this to work
         data = {
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "panic_score": panic_score,
             "reason": reason,
             "regime": "CRASH" if panic_score > 7.5 else "NORMAL"
         }
-        # Insert a new row each time so panic events are preserved instead of overwriting id=1.
+        # Insert a new row each time so panic events are preserved instead of overwriting.
         self.supabase.table("macro_status").insert(data).execute()
 
     # --- WATCHLIST & DISCOVERY ---
@@ -70,15 +69,16 @@ class DatabaseManager:
         return [item['ticker'] for item in res.data]
 
     # --- MLOPS & LOGGING ---
-    def log_market_data(self, ticker, price, sentiment, log, headline=None, status="pending"):
+    def log_market_data(self, ticker, price, sentiment, log, headline=None, status="pending", panic_score=0.0):
         """Consolidated logging for AI signals, price, and headlines."""
         data = {
             "ticker": ticker,
             "price_at_signal": float(price),
             "sentiment_score": float(sentiment),
-            "logs": log,  # Matches the renamed column
-            "headline": headline,    # Matches the new column
+            "logs": log,  
+            "headline": headline,    
             "status": status,
+            "macro_panic_score": float(panic_score), # 🛠️ CRITICAL FIX: Bridges macro_status with market_signals
             "model_version": "v1-pavilion-ppo"
         }
         self.supabase.table("market_signals").insert(data).execute()
@@ -104,7 +104,7 @@ class DatabaseManager:
         else:
             df['price_change'] = 0.0
         
-        # Add macro_panic_score column (default to 3 = neutral if missing)
+        # Ensure macro_panic_score exists (fallback to neutral 3.0 if older rows lack it)
         if 'macro_panic_score' not in df.columns:
             df['macro_panic_score'] = 3.0
         
