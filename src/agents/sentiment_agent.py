@@ -144,7 +144,7 @@ class DualGroupAgent:
         if op1 and op2:
             a = op1['sentiment_score']
             b = op2['sentiment_score']
-            avg = round((op1['sentiment_score'] + op2['sentiment_score']) / 2, 2)
+            avg = ((float)(a) + (float)(b)) / 2.0
 
             if((a > 0 and b > 0) or (a < 0 and b < 0)) :
                     return {"score": avg, "reason": op1['reasoning'], "status": "VERIFIED"}
