@@ -146,10 +146,10 @@ class DualGroupAgent:
             b = op2['sentiment_score']
             avg = ((float)(a) + (float)(b)) / 2.0
 
-            if((a > 0 and b > 0) or (a < 0 and b < 0)) :
+            if((a >= 0 and b >= 0) or (a <= 0 and b <= 0)) :
                     return {"score": avg, "reason": op1['reasoning'], "status": "VERIFIED"}
            
-            if((a < 0 and b > 0) or (a > 0 and b < 0)) :
+            if((a <= 0 and b >= 0) or (a >= 0 and b <= 0)) :
                 diff = abs(op1['sentiment_score'] - op2['sentiment_score'])
                 
                 if diff <= settings.CONSENSUS_THRESHOLD:
