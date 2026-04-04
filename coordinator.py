@@ -105,7 +105,7 @@ class TradingCoordinator:
         try:
             watchlist = self.db.get_active_watchlist()
             if not watchlist:
-                logger.info("📋 Watchlist is empty.")
+                logger.info("Watchlist is empty.")
                 return
 
             news_by_ticker = {}
@@ -136,7 +136,7 @@ class TradingCoordinator:
                         panic_score=panic_score
                     )
                     self.db.mark_watchlist_analyzed(ticker)
-                    logger.info(f"💵 {ticker}: Price synced (light cycle)")
+                    logger.info(f"{ticker}: Price synced (light cycle)")
                     continue
                 
                 # In hourly mode, reuse the single fetched news payload.
