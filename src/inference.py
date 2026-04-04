@@ -8,9 +8,9 @@ class TradingBrain:
         try:
             # 1. Load the trained PPO 'Brain'
             self.model = PPO.load(model_path)
-            logger.success(f"🧠 RL Brain loaded successfully from {model_path}")
+            logger.success(f"RL Brain loaded successfully from {model_path}")
         except Exception as e:
-            logger.error(f"🚨 Failed to load RL model: {e}")
+            logger.error(f"Failed to load RL model: {e}")
             self.model = None
 
     def get_action(self, price_change, sentiment, panic):

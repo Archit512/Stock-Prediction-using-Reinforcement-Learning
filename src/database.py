@@ -89,7 +89,7 @@ class DatabaseManager:
         df = pd.DataFrame(res.data)
         
         if df.empty:
-            logger.warning("⚠️ No training data in market_signals table yet.")
+            logger.warning("No training data in market_signals table yet.")
             return df
         
         # --- TRANSFORM: Map storage columns to RL environment columns ---
@@ -118,7 +118,7 @@ class DatabaseManager:
             if col not in df.columns:
                 df[col] = 0.0
         
-        logger.info(f"✅ Loaded {len(df)} training samples with columns: {list(df.columns)}")
+        logger.info(f"Loaded {len(df)} training samples with columns: {list(df.columns)}")
         return df[required_cols]
 
 # Create the singleton instance

@@ -52,12 +52,12 @@ class DataFetcher:
                             })
                 
                 if discovered:
-                    logger.success(f"✅ Alpha Vantage: Found {len(discovered)} news items")
+                    logger.success(f"Alpha Vantage: Found {len(discovered)} news items")
                     return discovered[:limit]
             else:
-                 logger.debug("⚠️ Alpha Vantage returned empty or hit rate limit.")
+                 logger.debug("Alpha Vantage returned empty or hit rate limit.")
         except Exception as e:
-            logger.debug(f"⚠️ Alpha Vantage API Error: {e}")
+            logger.debug(f"Alpha Vantage API Error: {e}")
 
         # --- 2. Try FMP (With Increased Timeout) ---
         try:
@@ -76,14 +76,14 @@ class DataFetcher:
                         })
                 
                 if discovered:
-                    logger.success(f"✅ FMP: Found {len(discovered)} news items")
+                    logger.success(f"FMP: Found {len(discovered)} news items")
                     return discovered[:limit]
         except Exception as e:
-            logger.debug(f"⚠️ FMP API Error: {e}")
+            logger.debug(f"FMP API Error: {e}")
 
         # --- 3. yfinance Safety Net (Fixed Logic) ---
         try:
-            logger.info("🛡️ Switching to yfinance Active Ticker discovery...")
+            logger.info("Switching to yfinance Active Ticker discovery...")
             
             active_market_movers = [
                 "NVDA", "TSLA", "AAPL", "AMD", "META", 
@@ -111,11 +111,11 @@ class DataFetcher:
                         })
             
             if discovered:
-                logger.success(f"✅ yfinance: Found {len(discovered)} valid ticker-headline pairs")
+                logger.success(f"yfinance: Found {len(discovered)} valid ticker-headline pairs")
                 return discovered[:limit]
                 
         except Exception as e:
-            logger.error(f"🚨 yfinance Discovery Failed: {e}")
+            logger.error(f"yfinance Discovery Failed: {e}")
 
         return []
 
@@ -131,12 +131,12 @@ class DataFetcher:
                 return float(price)
             return None
         except Exception as e:
-            logger.debug(f"⚠️ Price fetch failed for {ticker}: {e}")
+            logger.debug(f"Price fetch failed for {ticker}: {e}")
             return None
 
     def get_global_macro_news(self) -> str:
         try:
-            logger.info("📊 Fetching global macro news from yfinance...")
+            logger.info("Fetching global macro news from yfinance...")
             yf_global = yf.Search("Global Economy", news_count=5).news
             
             headlines = []
@@ -149,31 +149,31 @@ class DataFetcher:
             
             if headlines:
                 result = " | ".join(headlines)
-                logger.success(f"✅ Got {len(headlines)} macro news headlines")
+                logger.success(f"Got {len(headlines)} macro news headlines")
                 return result
             else:
                 return "No global news available."
                 
         except Exception as e:
-            logger.error(f"🚨 Global macro news error: {e}")
+            logger.error(f"Global macro news error: {e}")
             return "No global news available."
         
 if __name__ == "__main__":
     fetcher = DataFetcher()
-    logger.info("🧪 Testing DataFetcher...")
+    logger.info("Testing DataFetcher...")
     
     logger.info("\n--- Test 1: Market News Fetch (Discovery) ---")
     trending = fetcher.get_random_market_news(5)
     if not trending:
-        logger.critical("❌ TRADING DISCOVERY IS EMPTY.")
+        logger.critical("TRADING DISCOVERY IS EMPTY.")
     else:
-        logger.success(f"✅ Found {len(trending)} trending stocks.")
+        logger.success(f"Found {len(trending)} trending stocks.")
         for item in trending:
             logger.info(f"   [{item['source']}] {item['ticker']}: {item['headline'][:60]}...")
     
     logger.info("\n--- Test 2: Global Macro News Fetch ---")
     macro_news = fetcher.get_global_macro_news()
     if macro_news == "No global news available.":
-        logger.warning("⚠️ No global macro news fetched")
+        logger.warning("No global macro news fetched")
     else:
-        logger.info(f"✅ Got macro news: {macro_news[:80]}...")
+        logger.info(f"Got macro news: {macro_news[:80]}...")

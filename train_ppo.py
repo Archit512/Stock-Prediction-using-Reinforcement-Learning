@@ -5,11 +5,11 @@ from loguru import logger
 
 def train_brain():
     # 1. Fetch historical logs from Supabase
-    logger.info("📥 Downloading market history for training...")
+    logger.info("Downloading market history for training...")
     df = db.get_training_data()
     
     if len(df) < 100:
-        logger.error("❌ Not enough data in Supabase yet. Run Coordinator for a few days!")
+        logger.error("Not enough data in Supabase yet. Run Coordinator for a few days!")
         return
 
     # 2. Setup Environment
@@ -29,12 +29,12 @@ def train_brain():
     )
 
     # 4. Value Updation: Agent plays the 'game' of your past trades
-    logger.info("🧠 Training PPO Agent on Market Data...")
+    logger.info("Training PPO Agent on Market Data...")
     model.learn(total_timesteps=20000)
 
     # 5. Save the 'Brain' for Google Cloud Deployment
     model.save("ppo_trading_model_v1")
-    logger.success("✅ Training Complete! Model saved as ppo_trading_model_v1.zip")
+    logger.success("Training Complete! Model saved as ppo_trading_model_v1.zip")
 
 if __name__ == "__main__":
     train_brain()

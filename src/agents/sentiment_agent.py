@@ -137,7 +137,7 @@ class DualGroupAgent:
         # If you need to check macro state within analysis, import it locally
         # from src.agents.macro_agent import MacroSentinel 
         
-        logger.info(f"🧠 Analyzing {ticker}...")
+        logger.info(f"Analyzing {ticker}...")
         op1 = self._get_group1_opinion(ticker, headline)
         op2 = self._get_group2_opinion(ticker, headline)
 
@@ -153,19 +153,19 @@ class DualGroupAgent:
                 diff = abs(op1['sentiment_score'] - op2['sentiment_score'])
                 
                 if diff <= settings.CONSENSUS_THRESHOLD:
-                        logger.success(f"✅ Consensus: {avg}")
+                        logger.success(f"Consensus: {avg}")
                         return {"score": avg, "reason": op1['reasoning'], "status": "CONFLICT"}
                 else:
-                        logger.error(f"❌ Hallucination Detected (Diff: {diff:.2f}).")
+                        logger.error(f"Hallucination Detected (Diff: {diff:.2f}).")
                         # FIXED: Return neutral response instead of None
                         return {"score": avg, "reason": "Conflicting AI opinions detected", "status": "CONFLICT"}
 
         survivor = op1 or op2
         if survivor:
-            logger.warning(f"📡 Only one AI group responded. Score: {survivor['sentiment_score']}")
+            logger.warning(f"Only one AI group responded. Score: {survivor['sentiment_score']}")
             return {"score": survivor['sentiment_score'], "reason": survivor['reasoning'], "status": "UNVERIFIED"}
 
-        logger.critical(f"🚨 ALL AI GROUPS FAILED for {ticker}.")
+        logger.critical(f"ALL AI GROUPS FAILED for {ticker}.")
         # FIXED: Return neutral response instead of None
         return {"score": 0.0, "reason": "All AI groups failed - neutral default", "status": "FAILED"}
     

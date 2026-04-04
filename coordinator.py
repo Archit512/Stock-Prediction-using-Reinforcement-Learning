@@ -35,48 +35,48 @@ class TradingCoordinator:
         # If the minute is less than 15, treat it as the top-of-the-hour heavy cycle
         is_hourly_cycle = current_minute < 15 
         
-        cycle_type = "🧠 HEAVY (Full AI & Discovery)" if is_hourly_cycle else "⚡ LIGHT (Macro & Price Sync)"
+        cycle_type = "HEAVY (Full AI & Discovery)" if is_hourly_cycle else "LIGHT (Macro & Price Sync)"
         
-        logger.info(f"--- 🏁 AWS CLOUD EXECUTION START | Minute: {current_minute} | Mode: {cycle_type} ---")
+        logger.info(f"--- AWS CLOUD EXECUTION START | Minute: {current_minute} | Mode: {cycle_type} ---")
 
         # --- 🛡️ 15-MINUTE ROUTINE: MACRO SAFETY CHECK ---
-        logger.info("🌐 Fetching Global Macro Context...")
+        logger.info("Fetching Global Macro Context...")
         macro_news = self.fetcher.get_global_macro_news()
         panic_data = self.macro.get_panic_status(macro_news)
         
         self.db.update_macro_status(panic_data['panic_score'], panic_data['reason'])
         
         if panic_data['regime'] == "CRASH":
-            logger.critical(f"🚨 GLOBAL CRASH DETECTED ({panic_data['panic_score']}/10). HALTING BUYS.")
+            logger.critical(f"GLOBAL CRASH DETECTED ({panic_data['panic_score']}/10). HALTING BUYS.")
             # 🛠️ FIX: Pass panic_score downward
             self._process_holdings(hourly=is_hourly_cycle, emergency=True, panic_score=panic_data['panic_score']) 
-            logger.info("🏁 EXECUTION COMPLETE. Exiting.")
+            logger.info("EXECUTION COMPLETE. Exiting.")
             return
 
         # --- 15-MINUTE ROUTINE: PRICE SYNC ---
         if not is_hourly_cycle:
-            logger.info("📋 Quick Sync: Updating prices for Holdings & Watchlist...")
+            logger.info("Quick Sync: Updating prices for Holdings & Watchlist...")
             # 🛠️ FIX: Pass panic_score downward
             self._process_holdings(hourly=False, panic_score=panic_data['panic_score'])
             self._process_watchlist(hourly=False, panic_score=panic_data['panic_score'])
-            logger.info("🏁 LIGHT CYCLE COMPLETE. Exiting gracefully.")
+            logger.info("LIGHT CYCLE COMPLETE. Exiting gracefully.")
             return 
 
         # --- 🧠 HOURLY ROUTINE: FULL AI PIPELINE ---
         if is_hourly_cycle:
-            logger.info("📋 Auditing Holdings (Price & Sentiment)...")
+            logger.info("Auditing Holdings (Price & Sentiment)...")
             # 🛠️ FIX: Pass panic_score downward
             self._process_holdings(hourly=True, panic_score=panic_data['panic_score'])
 
             # Fetch hourly market news once and reuse across hourly tasks.
             hourly_news_items = self.fetcher.get_random_market_news(limit=10)
 
-            logger.info("👀 Evaluating Watchlist (AI & RL Brain)...")
+            logger.info("Evaluating Watchlist (AI & RL Brain)...")
             self._process_watchlist(hourly=True, panic_score=panic_data['panic_score'], hourly_news_items=hourly_news_items)
 
-            logger.info("🔭 Scanning Market for New Discoveries...")
+            logger.info("Scanning Market for New Discoveries...")
             self._discover_new_stocks(news_items=hourly_news_items)
-            logger.info("🏁 HEAVY CYCLE COMPLETE. Exiting gracefully.")
+            logger.info("HEAVY CYCLE COMPLETE. Exiting gracefully.")
 
     # 🛠️ FIX: Added panic_score=0 to signature to resolve NameError
     def _process_holdings(self, hourly=False, emergency=False, panic_score=0):
@@ -84,13 +84,13 @@ class TradingCoordinator:
         try:
             holdings = self.db.get_portfolio_holdings()
             if not holdings:
-                logger.info("📌 No current holdings to audit.")
+                logger.info("No current holdings to audit.")
                 return
             
             for ticker in holdings:
                 price = self.fetcher.get_price(ticker)
                 if price:
-                    logger.info(f"💵 {ticker}: ${price} (monitoring)")
+                    logger.info(f"{ticker}: ${price} (monitoring)")
                     if not emergency:
                         sentiment = self.analyzer.analyze(ticker, f"Brief sentiment for {ticker}")
                         if sentiment:
@@ -98,7 +98,7 @@ class TradingCoordinator:
                             self.db.log_market_data(ticker, price, sentiment.get('score', 0), 
                                                     sentiment.get('reason', ''), status='monitoring', panic_score=panic_score)
         except Exception as e:
-            logger.error(f"🚨 Error processing holdings: {e}")
+            logger.error(f"Error processing holdings: {e}")
 
     def _process_watchlist(self, hourly=False, panic_score=0, hourly_news_items=None):
         """Evaluate watchlist stocks for trading signals."""
@@ -121,7 +121,7 @@ class TradingCoordinator:
                 
                 # --- SAFETY LAYER: Save price even if news fails ---
                 if not price:
-                    logger.warning(f"⚠️ {ticker}: Price fetch failed, skipping.")
+                    logger.warning(f"{ticker}: Price fetch failed, skipping.")
                     self.db.mark_watchlist_analyzed(ticker)
                     continue
 
@@ -160,18 +160,18 @@ class TradingCoordinator:
                             status = ["HOLD", "BUY", "SELL"][action] if action in [0, 1, 2] else "HOLD"
                         else:
                             status = "pending"
-                            logger.warning("⚠️ TradingBrain not initialized; logging pending signal only.")
+                            logger.warning("TradingBrain not initialized; logging pending signal only.")
                         self.db.log_market_data(ticker, price, sentiment.get('score', 0), 
                                                 sentiment.get('reason', ''), headline=headline, status=status, panic_score=panic_score)
-                        logger.info(f"📊 {ticker}: {status} signal logged")
+                        logger.info(f"{ticker}: {status} signal logged")
                     else:
                         # News exists but sentiment analysis failed → save price anyway
-                        logger.warning(f"⚠️ {ticker}: Sentiment analysis failed, saving price only.")
+                        logger.warning(f"{ticker}: Sentiment analysis failed, saving price only.")
                         self.db.log_market_data(ticker, price, 0.0, 
                                                 "News fetched but sentiment analysis unavailable", headline=headline, status="pending", panic_score=panic_score)
                 else:
                     # News fetch failed → save price with neutral sentiment
-                    logger.warning(f"⚠️ {ticker}: News unavailable, saving price only.")
+                    logger.warning(f"{ticker}: News unavailable, saving price only.")
                     self.db.log_market_data(ticker, price, 0.0, 
                                             "Price check (news fetch failed)", headline=headline, status="price_only", panic_score=panic_score)
 
@@ -179,7 +179,7 @@ class TradingCoordinator:
                 self.db.mark_watchlist_analyzed(ticker)
                     
         except Exception as e:
-            logger.error(f"🚨 Error processing watchlist: {e}")
+            logger.error(f"Error processing watchlist: {e}")
 
     def _cleanup_watchlist_if_oversized(self, max_size=10, min_days_to_keep=7):
         """
@@ -223,7 +223,7 @@ class TradingCoordinator:
 
         # If all extra stocks are still within their 7-day immunity, we don't delete anything.
         if not removable_candidates:
-            logger.info(f"⚠️ Watchlist is at {current_size}, but all non-holdings are protected by the {min_days_to_keep}-day immunity. Skipping cleanup.")
+            logger.info(f"Watchlist is at {current_size}, but all non-holdings are protected by the {min_days_to_keep}-day immunity. Skipping cleanup.")
             return
 
         # 2. Sort the removable ones by least recently analyzed
@@ -243,7 +243,7 @@ class TradingCoordinator:
             ticker = row.get("ticker")
             if ticker:
                 self.db.remove_from_watchlist(ticker)
-                logger.info(f"🧹 Evicted {ticker} from watchlist (Tracked for {min_days_to_keep}+ days)")
+                logger.info(f"Evicted {ticker} from watchlist (Tracked for {min_days_to_keep}+ days)")
 
     def _evict_one_inactive_non_holding(self, min_days_to_keep=7):
         """
@@ -290,7 +290,7 @@ class TradingCoordinator:
         if victim_ticker:
             self.db.remove_from_watchlist(victim_ticker)
             logger.info(
-                f"🧹 Evicted {victim_ticker} (inactive, non-holding, tracked {min_days_to_keep}+ days)"
+                f"Evicted {victim_ticker} (inactive, non-holding, tracked {min_days_to_keep}+ days)"
             )
         return victim_ticker
 
@@ -315,7 +315,7 @@ class TradingCoordinator:
                 if len(current_watchlist) < max_watchlist_size:
                     self.db.add_to_watchlist(ticker)
                     current_watchlist.add(ticker)
-                    logger.success(f"🆕 Added {ticker} to watchlist via {source}")
+                    logger.success(f"Added {ticker} to watchlist via {source}")
                     continue
 
                 evicted_ticker = self._evict_one_inactive_non_holding(min_days_to_keep=7)
@@ -323,13 +323,13 @@ class TradingCoordinator:
                     current_watchlist.discard(evicted_ticker)
                     self.db.add_to_watchlist(ticker)
                     current_watchlist.add(ticker)
-                    logger.success(f"🆕 Added {ticker} to watchlist via {source} after evicting {evicted_ticker}")
+                    logger.success(f"Added {ticker} to watchlist via {source} after evicting {evicted_ticker}")
                 else:
                     logger.info(
-                        f"⏭️ Skipped {ticker}: watchlist full and no eligible inactive non-holding (7+ days) to evict"
+                        f"Skipped {ticker}: watchlist full and no eligible inactive non-holding (7+ days) to evict"
                     )
         except Exception as e:
-            logger.error(f"🚨 Error discovering new stocks: {e}")
+            logger.error(f"Error discovering new stocks: {e}")
 
 # 🛠️ UPDATED EXECUTION BLOCK
 if __name__ == "__main__":
@@ -338,4 +338,4 @@ if __name__ == "__main__":
     try:
         bot.run_once()
     except Exception as e:
-        logger.error(f"🚨 Cloud Execution Error: {e}")
+        logger.error(f"Cloud Execution Error: {e}")

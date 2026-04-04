@@ -14,7 +14,7 @@ class MacroSentinel:
             self.analyzer = DualGroupAgent()
 
         if not global_news_string or len(global_news_string) < 30:
-            logger.warning("⚠️ Macro news string too short. Defaulting to NORMAL.")
+            logger.warning("Macro news string too short. Defaulting to NORMAL.")
             return {"panic_score": 0, "regime": "NORMAL", "reason": "Insufficient news data."}
 
         macro_prompt = (
@@ -27,7 +27,7 @@ class MacroSentinel:
         
         # FIX: Handle None result when all AI groups fail
         if result is None:
-            logger.warning("⚠️ AI analysis failed. Defaulting to NORMAL.")
+            logger.warning("AI analysis failed. Defaulting to NORMAL.")
             return {"panic_score": 0, "regime": "NORMAL", "reason": "AI analysis unavailable."}
         
         # Ensure we use the right keys to avoid errors
