@@ -26,7 +26,7 @@ class TradingBrain:
             # 2. Sync Global Balance for the 'Balance_Ratio' feature
             # Added error handling so a split-second database timeout doesn't crash the bot
             account = db.get_account_status()
-            balance_ratio = float(account.get('current_balance', 10000.0)) / 10000.0
+            balance_ratio = float(account.get('current_balance', 200000.0)) / 10000.0
         except Exception as e:
             logger.error(f"Failed to fetch account status during live tick: {e}")
             balance_ratio = 1.0 # Assume starting capital if DB drops momentarily

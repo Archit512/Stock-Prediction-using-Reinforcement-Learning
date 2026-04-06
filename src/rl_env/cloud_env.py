@@ -18,7 +18,7 @@ class CloudPersistentEnv(gym.Env):
     def _get_obs(self):
         try:
             row = self.df.iloc[self.current_step]
-            balance_ratio = self.balance / 10000.0 
+            balance_ratio = self.balance / 200000.0 
             
             # Use .get() to avoid KeyErrors if columns mismatch slightly
             return np.array([
@@ -37,7 +37,7 @@ class CloudPersistentEnv(gym.Env):
         
         if self.is_training:
             # ISOLATED SANDBOX: Do not hit Supabase
-            self.balance = 10000.0
+            self.balance = 200000.0
             self.shares_held = 0.0
         else:
             # LIVE CLOUD INFERENCE: Fetch real state
