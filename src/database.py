@@ -78,7 +78,7 @@ class DatabaseManager:
             "logs": log,  
             "headline": headline,    
             "status": status,
-            "macro_panic_score": float(panic_score), # 🛠️ CRITICAL FIX: Bridges macro_status with market_signals
+            "macro_panic_score": float(panic_score), 
             "model_version": "v1-pavilion-ppo"
         }
         self.supabase.table("market_signals").insert(data).execute()
@@ -93,16 +93,19 @@ class DatabaseManager:
             return df
         
         # --- TRANSFORM: Map storage columns to RL environment columns ---
-        # Rename price_at_signal to price for clarity
         if 'price_at_signal' in df.columns:
-            df['price'] = df['price_at_signal']
-        
-        # Calculate price_change (simplified: use sentiment as proxy for now)
-        # In production, compute from consecutive price rows
-        if 'sentiment_score' in df.columns:
-            df['price_change'] = df['sentiment_score'] / 10.0  # Normalized change
+            # Convert to float to ensure mathematical operations work
+            df['price'] = df['price_at_signal'].astype(float)
         else:
-            df['price_change'] = 0.0
+            df['price'] = 1.0 # Safe fallback
+        
+        # --- CRITICAL FIX: ACTUAL PRICE CHANGE ---
+        # Calculate the real percentage change, grouped by ticker to prevent 
+        # crossing data streams (e.g., subtracting AAPL price from TSLA price)
+        if 'ticker' in df.columns:
+            df['price_change'] = df.groupby('ticker')['price'].pct_change().fillna(0.0)
+        else:
+            df['price_change'] = df['price'].pct_change().fillna(0.0)
         
         # Ensure macro_panic_score exists (fallback to neutral 3.0 if older rows lack it)
         if 'macro_panic_score' not in df.columns:
@@ -111,12 +114,17 @@ class DatabaseManager:
         # Ensure sentiment_score exists (0.0 if partial data)
         if 'sentiment_score' not in df.columns:
             df['sentiment_score'] = 0.0
-        
+            
         # Keep only columns RL environment expects
         required_cols = ['price', 'price_change', 'sentiment_score', 'macro_panic_score']
+        
+        # Final safety check for missing columns
         for col in required_cols:
             if col not in df.columns:
                 df[col] = 0.0
+                
+        # --- THE FIX: Only apply fillna to our specific math columns! ---
+        df[required_cols] = df[required_cols].fillna(0.0)
         
         logger.info(f"Loaded {len(df)} training samples with columns: {list(df.columns)}")
         return df[required_cols]

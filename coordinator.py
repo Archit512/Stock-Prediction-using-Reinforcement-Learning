@@ -8,7 +8,7 @@ from src.agents.data_fetcher import DataFetcher
 from src.agents.sentiment_agent import DualGroupAgent
 from src.agents.macro_agent import MacroSentinel
 from src.database import DatabaseManager
-# from src.inference import TradingBrain
+from src.inference import TradingBrain
 
 logger.remove()
 logger.add(sys.stderr, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{message}</cyan>", colorize=True)
@@ -20,7 +20,7 @@ class TradingCoordinator:
         self.macro = MacroSentinel()
         self.db = DatabaseManager()
         self.initial_prices = {}
-        # self.brain = TradingBrain()
+        self.brain = TradingBrain()
 
     def run_once(self):
         current_minute = datetime.datetime.now().minute

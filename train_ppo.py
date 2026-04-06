@@ -1,40 +1,55 @@
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
 from stable_baselines3 import PPO
 from src.rl_env.cloud_env import CloudPersistentEnv
 from src.database import db
 from loguru import logger
+import os
 
 def train_brain():
-    # 1. Fetch historical logs from Supabase
-    logger.info("Downloading market history for training...")
-    df = db.get_training_data()
-    
-    if len(df) < 100:
-        logger.error("Not enough data in Supabase yet. Run Coordinator for a few days!")
-        return
+    try:
+        # 1. Fetch historical logs
+        logger.info("Downloading market history for training...")
+        df = db.get_training_data()
+        
+        # Verify data exists
+        if df is None or df.empty:
+            logger.error("DataFrame is empty! Check db.get_training_data() query.")
+            return
+            
+        if len(df) < 100:
+            logger.error(f"Only {len(df)} rows found. Need at least 100.")
+            return
 
-    # 2. Setup Environment
-    env = CloudPersistentEnv(df)
+        # 2. Setup Environment (FLAGGED AS TRAINING)
+        logger.info("Initializing Sandbox Environment...")
+        env = CloudPersistentEnv(df, is_training=True)
 
-    # 3. Initialize PPO Agent (The Actor-Critic)
-    # ent_coef: Exploration vs Exploitation balance
-    # clip_range: Safety limit for policy updates
-    model = PPO(
-        "MlpPolicy", 
-        env, 
-        verbose=1, 
-        learning_rate=3e-4,
-        ent_coef=0.01, 
-        clip_range=0.2,
-        gamma=0.99
-    )
+        # 3. Initialize PPO Agent
+        model = PPO(
+            "MlpPolicy", 
+            env, 
+            verbose=1, 
+            learning_rate=3e-4,
+            ent_coef=0.01, 
+            clip_range=0.2,
+            gamma=0.99
+        )
 
-    # 4. Value Updation: Agent plays the 'game' of your past trades
-    logger.info("Training PPO Agent on Market Data...")
-    model.learn(total_timesteps=20000)
+        # 4. Train
+        logger.info("Starting local PPO training...")
+        model.learn(total_timesteps=60000)
 
-    # 5. Save the 'Brain' for Google Cloud Deployment
-    model.save("ppo_trading_model_v1")
-    logger.success("Training Complete! Model saved as ppo_trading_model_v1.zip")
+        # 5. Save the Model
+        os.makedirs("models", exist_ok=True)
+        save_path = "models/ppo_trading_model_v1"
+        
+        model.save(save_path)
+        logger.success(f"Training Complete! Model saved to {save_path}.zip")
+
+    except Exception as e:
+        logger.error(f"Fatal error during training: {e}")
 
 if __name__ == "__main__":
     train_brain()
