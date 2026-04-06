@@ -128,6 +128,18 @@ class DatabaseManager:
         
         logger.info(f"Loaded {len(df)} training samples with columns: {list(df.columns)}")
         return df[required_cols]
+    
+    def update_holding_status(self, ticker, is_holding: bool):
+        """Updates the watchlist table when a buy/sell is executed."""
+        self.supabase.table("watchlist").update({"is_holding": is_holding}).eq("ticker", ticker).execute()
+
+    def sync_broker_account(self, cash, equity):
+        """Syncs the Alpaca paper trading balance back to Supabase user_account."""
+        data = {
+            "current_balance": float(cash),
+            "equity_value": float(equity)
+        }
+        self.supabase.table("user_account").update(data).eq("id", 1).execute()
 
 # Create the singleton instance
 db = DatabaseManager()

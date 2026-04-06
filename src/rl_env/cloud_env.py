@@ -69,7 +69,12 @@ class CloudPersistentEnv(gym.Env):
             # Kelly Governor
             p = (sentiment + 1) / 2
             kelly_size = max(0, (2 * p - 1)) 
-            final_size = min(requested_size, kelly_size) 
+            
+            # 🔥 NEW: Minimum Allocation Floor (Must match inference.py!)
+            if sentiment > 0.0:
+                kelly_size = max(0.05, kelly_size)
+                
+            final_size = min(requested_size, kelly_size)
 
             # Execute trade
             if action_type == 1: # BUY

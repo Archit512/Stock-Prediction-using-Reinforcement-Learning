@@ -41,7 +41,7 @@ class TradingBrain:
 
             # 5. Extract results (Action 0-2, Size 0-1)
             # CRITICAL FIX: Round the float BEFORE converting to integer
-            action_type = int(round(float(action[0]))) 
+            action_type = int(np.clip(round(float(action[0])), 0, 2))
             
             # Failsafe bounds check to ensure it strictly stays 0, 1, or 2
             action_type = max(0, min(2, action_type))
@@ -51,6 +51,12 @@ class TradingBrain:
             # --- FINAL SAFETY: RE-APPLY KELLY GOVERNOR ---
             p = (sentiment + 1) / 2
             kelly_size = max(0.0, float((2 * p - 1)))
+            
+            # 🔥 NEW: Minimum Allocation Floor for Positive Sentiment
+            # If the news is positive, ensure the Kelly governor allows at least a 5% trade
+            if sentiment > 0.0:
+                kelly_size = max(0.05, kelly_size)
+            
             final_size = min(requested_size, kelly_size)
             
             # Failsafe bounds check for allocation size

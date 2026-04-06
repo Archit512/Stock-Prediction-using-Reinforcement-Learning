@@ -37,3 +37,4 @@ langchain-google-genai
 langchain-groq 
 langchain-cohere
 langchain-huggingface
+alpaca-py

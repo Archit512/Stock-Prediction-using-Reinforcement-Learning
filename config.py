@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     FINNHUB_KEY: str
     FMP_KEY: str
 
+    ALPACA_API_KEY: str
+    ALPACA_SECRET_KEY: str
+
     # --- ⚙️ BOT LOGIC SETTINGS ---
     # Max stocks to watch at once (to save API credits)
     MAX_WATCHLIST_SIZE: int = 10
