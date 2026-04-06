@@ -26,7 +26,7 @@ class TradingCoordinator:
     def run_once(self):
         """Executes a single cycle and exits. Scheduled via AWS EventBridge."""
         current_minute = dt.now().minute
-        is_hourly_cycle = current_minute < 100
+        is_hourly_cycle = current_minute < 15
         
         cycle_type = "HEAVY (Full AI & Discovery)" if is_hourly_cycle else "LIGHT (Macro & Price Sync)"
         logger.info(f"--- AWS CLOUD EXECUTION START | Minute: {current_minute} | Mode: {cycle_type} ---")
