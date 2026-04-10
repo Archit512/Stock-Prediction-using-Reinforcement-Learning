@@ -172,7 +172,7 @@ python train_ppo.py
 ```
 
 Training output model name:
-- ppo_trading_model_v1.zip
+- ppo_trading_model_v2.zip
 
 ## Inference
 

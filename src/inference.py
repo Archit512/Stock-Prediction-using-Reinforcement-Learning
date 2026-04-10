@@ -4,7 +4,7 @@ from loguru import logger
 from src.database import db
 
 class TradingBrain:
-    def __init__(self, model_path="models/ppo_trading_model_v1.zip"):
+    def __init__(self, model_path="models/ppo_trading_model_v2.zip"):
         try:
             # 1. Load the trained PPO 'Brain'
             self.model = PPO.load(model_path)

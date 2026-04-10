@@ -32,18 +32,18 @@ def train_brain():
             env, 
             verbose=1, 
             learning_rate=3e-4,
-            ent_coef=0.01, 
+            ent_coef=0.05, # Changed from 0.01 to encourage more exploration during training
             clip_range=0.2,
             gamma=0.99
         )
 
         # 4. Train
         logger.info("Starting local PPO training...")
-        model.learn(total_timesteps=60000)
+        model.learn(total_timesteps=150000) # Chnaged from 100k to 150k for better convergence
 
         # 5. Save the Model
         os.makedirs("models", exist_ok=True)
-        save_path = "models/ppo_trading_model_v1"
+        save_path = "models/ppo_trading_model_v2"
         
         model.save(save_path)
         logger.success(f"Training Complete! Model saved to {save_path}.zip")

@@ -7,7 +7,7 @@ class CloudPersistentEnv(gym.Env):
     def __init__(self, df, is_training=True):
         super(CloudPersistentEnv, self).__init__()
         self.df = df
-        self.is_training = is_training # <--- CRITICAL ADDITION
+        self.is_training = is_training 
         
         # Observation: [Price_Change, Sentiment, Macro_Panic, Balance_Ratio]
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(4,), dtype=np.float32)
@@ -70,7 +70,7 @@ class CloudPersistentEnv(gym.Env):
             p = (sentiment + 1) / 2
             kelly_size = max(0, (2 * p - 1)) 
             
-            # 🔥 NEW: Minimum Allocation Floor (Must match inference.py!)
+            # Minimum Allocation Floor 
             if sentiment > 0.0:
                 kelly_size = max(0.05, kelly_size)
                 
@@ -86,9 +86,13 @@ class CloudPersistentEnv(gym.Env):
                 self.balance += self.shares_held * current_price
                 self.shares_held = 0
 
+            # 🔥 NEW: Calculate current equity value to send to the database
+            current_equity = self.balance + (self.shares_held * current_price)
+
             # CRITICAL: Only update Supabase if we are deployed live
             if not self.is_training:
-                db.update_account_status(self.balance, self.shares_held)
+                # 🔥 NEW: Pass the calculated equity down to Supabase
+                db.update_account_status(self.balance, self.shares_held, current_equity)
 
             self.current_step += 1
             done = self.current_step >= len(self.df) - 1
@@ -101,12 +105,32 @@ class CloudPersistentEnv(gym.Env):
                 
             new_net_worth = self.balance + (self.shares_held * new_price)
             
-            # Prevent math domain errors (log of 0 or negative)
+            # 1. Calculate Base Reward (Portfolio Return)
             if new_net_worth <= 0 or self.net_worth <= 0:
-                reward = -1.0 
+                base_reward = -1.0 
             else:
-                reward = np.log(new_net_worth / self.net_worth)
+                base_reward = np.log(new_net_worth / self.net_worth)
                 
+            # ---------------------------------------------------------
+            # ANTI-COWARDICE MECHANICS (Fixing the HOLD exploit)
+            # ---------------------------------------------------------
+            penalty = 0.0
+            
+            # A. Idle Penalty: Tiny bleed if agent chooses to hold cash and do nothing
+            if action_type == 0 and self.shares_held == 0:
+                penalty -= 0.0001
+                
+            # B. Opportunity Cost: Market went up, but agent had no exposure
+            if self.shares_held == 0:
+                market_return = (new_price - current_price) / current_price if current_price > 0 else 0
+                if market_return > 0:
+                    # Penalize 50% of the gain it missed by being too scared to buy
+                    penalty -= (market_return * 0.5) 
+            
+            # Combine for final reward
+            reward = base_reward + penalty
+            # ---------------------------------------------------------
+
             self.net_worth = new_net_worth
 
             return self._get_obs(), float(reward), done, False, {}

@@ -15,9 +15,13 @@ class DatabaseManager:
         res = self.supabase.table("user_account").select("*").eq("id", 1).single().execute()
         return res.data
 
-    def update_account_status(self, balance, shares):
-        """Syncs balance after a trade is executed."""
-        data = {"current_balance": float(balance), "total_shares": float(shares)}
+    def update_account_status(self, balance, shares, equity_value):
+        """Syncs balance and equity after a trade is executed."""
+        data = {
+            "current_balance": float(balance), 
+            "total_shares": float(shares),
+            "equity_value": float(equity_value) # 🔥 NEW: Syncs the true portfolio value
+        }
         self.supabase.table("user_account").update(data).eq("id", 1).execute()
 
     # --- MACRO & REGIME ---
