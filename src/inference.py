@@ -24,7 +24,6 @@ class TradingBrain:
 
         try:
             # 2. Sync Global Balance for the 'Balance_Ratio' feature
-            # Added error handling so a split-second database timeout doesn't crash the bot
             account = db.get_account_status()
             balance_ratio = float(account.get('current_balance', 200000.0)) / 10000.0
         except Exception as e:
@@ -36,28 +35,22 @@ class TradingBrain:
             obs = np.array([price_change, sentiment, panic, balance_ratio], dtype=np.float32)
 
             # 4. Predict the Action
-            # deterministic=True: Best decision only, no exploration in live trading!
             action, _states = self.model.predict(obs, deterministic=True)
 
             # 5. Extract results (Action 0-2, Size 0-1)
-            # CRITICAL FIX: Round the float BEFORE converting to integer
             action_type = int(np.clip(round(float(action[0])), 0, 2))
-            
-            # Failsafe bounds check to ensure it strictly stays 0, 1, or 2
             action_type = max(0, min(2, action_type))
-            
             requested_size = float(action[1])
 
             # --- FINAL SAFETY: RE-APPLY KELLY GOVERNOR ---
             p = (sentiment + 1) / 2
             kelly_size = max(0.0, float((2 * p - 1)))
             
-            # 🔥 NEW: Minimum Allocation Floor for Positive Sentiment
-            # If the news is positive, ensure the Kelly governor allows at least a 5% trade
-            if sentiment > 0.0:
-                kelly_size = max(0.05, kelly_size)
-            
             final_size = min(requested_size, kelly_size)
+            
+            # 🔥 FIX: Force a minimum allocation if the agent wants to BUY and news is good
+            if action_type == 1 and sentiment > 0.0:
+                final_size = max(0.05, final_size)
             
             # Failsafe bounds check for allocation size
             final_size = max(0.0, min(1.0, final_size))

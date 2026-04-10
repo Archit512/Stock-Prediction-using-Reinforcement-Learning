@@ -1,4 +1,3 @@
-# src/broker.py
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
@@ -32,8 +31,13 @@ class PaperTrader:
         Executes the trade on Alpaca.
         Returns True if the order was submitted, False otherwise.
         """
-        if action_type == 0 or size <= 0:
+        if action_type == 0:
             return False # HOLD
+
+        # 🔥 FIX: Actually log why a trade is rejected due to 0 size!
+        if size <= 0:
+            logger.warning(f"⚠️ Trade rejected for {ticker}: Agent requested a trade size of {size}")
+            return False
 
         try:
             if action_type == 1:  # BUY
