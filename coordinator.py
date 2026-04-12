@@ -170,17 +170,24 @@ class TradingCoordinator:
                             action, size = self.brain.get_action(price_change, sentiment.get('score', 0), panic_score)
                             status = ["HOLD", "BUY", "SELL"][action] if action in [0, 1, 2] else "HOLD"
                             
+                            # 🛑 NEW: Weekend Check (0 = Monday, 5 = Saturday, 6 = Sunday)
+                            is_weekend = datetime.datetime.now().weekday() >= 5
+
                             # 💼 2. Execute Trade via Alpaca
                             if status in ["BUY", "SELL"]:
-                                logger.info(f"⚡ Brain requested {status} for {ticker}. Sending to Broker...")
-                                trade_success = self.broker.execute_trade(ticker, action, size, float(price))
-                                
-                                # 🗄️ 3. Update Database State on Success
-                                if trade_success:
-                                    is_holding = True if status == "BUY" else False
-                                    self.db.update_holding_status(ticker, is_holding)
+                                if is_weekend:
+                                    logger.info(f"⏸️ Weekend active! Skipping broker execution for {ticker}. Intended: {status}.")
+                                    status = f"weekend_{status.lower()}" # Modifies status so it logs intention without acting
                                 else:
-                                    status = "HOLD" # Revert status if trade failed (market closed/insufficient funds)
+                                    logger.info(f"⚡ Brain requested {status} for {ticker}. Sending to Broker...")
+                                    trade_success = self.broker.execute_trade(ticker, action, size, float(price))
+                                    
+                                    # 🗄️ 3. Update Database State on Success
+                                    if trade_success:
+                                        is_holding = True if status == "BUY" else False
+                                        self.db.update_holding_status(ticker, is_holding)
+                                    else:
+                                        status = "HOLD" # Revert status if trade failed (market closed/insufficient funds)
 
                         else:
                             status = "pending"
