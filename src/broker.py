@@ -19,7 +19,7 @@ class PaperTrader:
         try:
             account = self.client.get_account()
             return {
-                "cash": float(account.buying_power),
+                "cash": float(account.cash),
                 "equity": float(account.equity)
             }
         except Exception as e:
@@ -42,10 +42,10 @@ class PaperTrader:
         try:
             if action_type == 1:  # BUY
                 account = self.client.get_account()
-                buying_power = float(account.buying_power)
+                available_cash = float(account.cash)
                 
                 # Calculate how much cash to risk based on the RL Agent's Kelly size
-                dollar_amount_to_risk = buying_power * size
+                dollar_amount_to_risk = available_cash * size
                 qty_to_buy = int(dollar_amount_to_risk // current_price)
 
                 if qty_to_buy > 0:
