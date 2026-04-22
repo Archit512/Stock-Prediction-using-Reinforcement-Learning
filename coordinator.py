@@ -25,8 +25,7 @@ class TradingCoordinator:
         self.macro = MacroSentinel()
         self.db = DatabaseManager()
         self.initial_prices = {}
-        
-        self.hourly_opening_net_worth = None
+
         # 🧠 Initialize the AI and Execution Layers
         self.brain = TradingBrain()
         self.broker = PaperTrader()
@@ -68,10 +67,8 @@ class TradingCoordinator:
             logger.info("📋 Auditing Holdings (Price, Sentiment & Broker Sync)...")
             self._process_holdings(hourly=True)
 
-            hourly_news_items = self.fetcher.get_random_market_news(limit=10)
-
             logger.info("👀 Evaluating Watchlist (AI, RL Brain & Execution)...")
-            self._process_watchlist(hourly=True, panic_score=panic_data['panic_score'], hourly_news_items=hourly_news_items)
+            self._process_watchlist(hourly=True, panic_score=panic_data['panic_score'])
 
             logger.info("🔭 Scanning Market for New Discoveries...")
             self._discover_new_stocks(news_items=hourly_news_items)
@@ -144,15 +141,6 @@ class TradingCoordinator:
                 logger.info("📋 Watchlist is empty.")
                 return
 
-            news_by_ticker = {}
-            if hourly:
-                hourly_news_items = self.fetcher.get_random_market_news(limit=10)
-                for item in hourly_news_items:
-                    ticker = item.get("ticker")
-                    headline = item.get("headline")
-                    if ticker and headline and ticker not in news_by_ticker:
-                        news_by_ticker[ticker] = headline
-            
             for ticker in watchlist[:5]:  # Limit to 5 to save API credits
                 price = self.fetcher.get_price(ticker)
                 
@@ -170,14 +158,13 @@ class TradingCoordinator:
                 
                 # Try to fetch news and sentiment
                 headline = None
-                if hourly:
-                    headline = news_by_ticker.get(ticker)
-                else:
-                    news = self.fetcher.get_random_market_news(limit=1)
-                    if news:
-                        headline = news[0]['headline']
 
-                if headline:
+                news = self.fetcher.get_random_market_news(limit=1)
+                
+                if news:
+                    headline = news[0]['headline']
+
+                
                     sentiment = self.analyzer.analyze(ticker, headline)
                     if sentiment:
                         if hasattr(self, "brain") and self.brain is not None:
@@ -274,15 +261,8 @@ class TradingCoordinator:
 
             holdings_value = max(0.0, net_worth - cash_balance)
 
-            previous_snapshot = self.db.get_latest_hourly_snapshot()
-            if previous_snapshot:
-                baseline_worth = float(previous_snapshot.get("net_worth", net_worth))
-            else:
-                baseline_worth = self.hourly_opening_net_worth if self.hourly_opening_net_worth is not None else net_worth
-                if self.hourly_opening_net_worth is None:
-                    self.hourly_opening_net_worth = net_worth
-
-            profit_loss = net_worth - float(baseline_worth)
+            # Store current net worth directly in profit_loss.
+            profit_loss = net_worth
 
             self.db.log_hourly_snapshot(
                 cash_balance=cash_balance,
@@ -329,12 +309,12 @@ class TradingCoordinator:
                 self.db.remove_from_watchlist(ticker)
                 logger.info(f"🧹 Removed inactive ticker from watchlist: {ticker}")
 
-    def _discover_new_stocks(self, news_items=None):
+    def _discover_new_stocks(self):
         """Scan market for new trading opportunities."""
         try:
             self._cleanup_watchlist_if_oversized(max_size=10)
-            if news_items is None:
-                news_items = self.fetcher.get_random_market_news(limit=5)
+            
+            news_items = self.fetcher.get_random_market_news(limit=5)
             current_watchlist = set(self.db.get_active_watchlist())
             
             for item in news_items:

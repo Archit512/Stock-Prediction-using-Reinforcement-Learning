@@ -177,7 +177,7 @@ Training output model name:
 ## Inference
 
 Inference wrapper is implemented in [src/inference.py](src/inference.py).
-Current coordinator code has TradingBrain initialization commented out; if you want live RL actioning, wire model loading in [coordinator.py](coordinator.py).
+Current coordinator initializes TradingBrain and broker execution in [coordinator.py](coordinator.py) for live RL actioning.
 
 ## Deployment Notes
 
@@ -186,7 +186,7 @@ The coordinator is designed for scheduled cloud execution (for example, every 15
 ## Current Status and Known Gaps
 
 - [app/main.py](app/main.py) is currently a placeholder.
-- Inference path exists but is not fully enabled in coordinator by default.
+- Inference and broker execution paths are enabled; behavior depends on model availability, market state, and API credentials.
 - Data quality and schema consistency in Supabase are critical for training stability.
 
 ## Safety Disclaimer

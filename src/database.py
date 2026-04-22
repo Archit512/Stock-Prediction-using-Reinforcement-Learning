@@ -114,6 +114,19 @@ class DatabaseManager:
         }
         self.supabase.table("portfolio_snapshots").insert(data).execute()
 
+    def get_latest_hourly_snapshot(self):
+        """Returns the most recent portfolio snapshot row, or None if table is empty."""
+        res = (
+            self.supabase.table("portfolio_snapshots")
+            .select("*")
+            .order("captured_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if res.data:
+            return res.data[0]
+        return None
+
     def get_transactions(self, symbol=None, limit=500):
         """Returns recent transaction rows for reporting or debugging."""
         query = self.supabase.table("transactions").select("*").order("timestamp", desc=True).limit(limit)
