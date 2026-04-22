@@ -26,6 +26,7 @@ class TradingCoordinator:
         self.db = DatabaseManager()
         self.initial_prices = {}
         
+        self.hourly_opening_net_worth = None
         # 🧠 Initialize the AI and Execution Layers
         self.brain = TradingBrain()
         self.broker = PaperTrader()
@@ -67,11 +68,15 @@ class TradingCoordinator:
             logger.info("📋 Auditing Holdings (Price, Sentiment & Broker Sync)...")
             self._process_holdings(hourly=True)
 
+            hourly_news_items = self.fetcher.get_random_market_news(limit=10)
+
             logger.info("👀 Evaluating Watchlist (AI, RL Brain & Execution)...")
-            self._process_watchlist(hourly=True, panic_score=panic_data['panic_score'])
+            self._process_watchlist(hourly=True, panic_score=panic_data['panic_score'], hourly_news_items=hourly_news_items)
 
             logger.info("🔭 Scanning Market for New Discoveries...")
-            self._discover_new_stocks()
+            self._discover_new_stocks(news_items=hourly_news_items)
+
+            self._record_hourly_performance_snapshot(panic_score=panic_data['panic_score'])
             logger.info("🏁 HEAVY CYCLE COMPLETE. Exiting gracefully.")
 
     def _process_holdings(self, hourly=False, emergency=False):
@@ -91,9 +96,16 @@ class TradingCoordinator:
                     if emergency:
                         logger.critical(f"🚨 EMERGENCY LIQUIDATION: {ticker}")
                         # Action 2 is SELL, Size 1.0 is 100% of position
+                        quantity = 0.0
+                        try:
+                            quantity = float(self.broker.client.get_open_position(ticker).qty)
+                        except Exception:
+                            quantity = 0.0
                         success = self.broker.execute_trade(ticker, action_type=2, size=1.0, current_price=float(price))
                         if success:
                             self.db.update_holding_status(ticker, False)
+                            if quantity > 0:
+                                self.db.log_transaction(ticker, "SELL", quantity, price)
                             # 🔥 FIXED: Using named arguments to prevent headline-column-shift
                             self.db.log_market_data(
                                 ticker=ticker, 
@@ -131,6 +143,15 @@ class TradingCoordinator:
             if not watchlist:
                 logger.info("📋 Watchlist is empty.")
                 return
+
+            news_by_ticker = {}
+            if hourly:
+                hourly_news_items = self.fetcher.get_random_market_news(limit=10)
+                for item in hourly_news_items:
+                    ticker = item.get("ticker")
+                    headline = item.get("headline")
+                    if ticker and headline and ticker not in news_by_ticker:
+                        news_by_ticker[ticker] = headline
             
             for ticker in watchlist[:5]:  # Limit to 5 to save API credits
                 price = self.fetcher.get_price(ticker)
@@ -148,10 +169,15 @@ class TradingCoordinator:
                     continue
                 
                 # Try to fetch news and sentiment
-                news = self.fetcher.get_random_market_news(limit=1)
-                
-                if news:
-                    headline = news[0]['headline']
+                headline = None
+                if hourly:
+                    headline = news_by_ticker.get(ticker)
+                else:
+                    news = self.fetcher.get_random_market_news(limit=1)
+                    if news:
+                        headline = news[0]['headline']
+
+                if headline:
                     sentiment = self.analyzer.analyze(ticker, headline)
                     if sentiment:
                         if hasattr(self, "brain") and self.brain is not None:
@@ -169,6 +195,17 @@ class TradingCoordinator:
                             # 🧠 1. Get Action & Size from RL Brain
                             action, size = self.brain.get_action(price_change, sentiment.get('score', 0), panic_score)
                             status = ["HOLD", "BUY", "SELL"][action] if action in [0, 1, 2] else "HOLD"
+
+                            trade_quantity = 0.0
+                            if status == "BUY":
+                                account = self.broker.get_account_sync_data()
+                                available_cash = float(account["cash"]) if account else 0.0
+                                trade_quantity = int((available_cash * float(size)) // float(price)) if price else 0.0
+                            elif status == "SELL":
+                                try:
+                                    trade_quantity = float(self.broker.client.get_open_position(ticker).qty)
+                                except Exception:
+                                    trade_quantity = 0.0
                             
                             # 🛑 NEW: Weekend Check (0 = Monday, 5 = Saturday, 6 = Sunday)
                             is_weekend = datetime.datetime.now().weekday() >= 5
@@ -186,6 +223,8 @@ class TradingCoordinator:
                                     if trade_success:
                                         is_holding = True if status == "BUY" else False
                                         self.db.update_holding_status(ticker, is_holding)
+                                        if trade_quantity > 0:
+                                            self.db.log_transaction(ticker, status, trade_quantity, price)
                                     else:
                                         status = "HOLD" # Revert status if trade failed (market closed/insufficient funds)
 
@@ -221,8 +260,48 @@ class TradingCoordinator:
         except Exception as e:
             logger.error(f"🚨 Error processing watchlist: {e}")
 
-    def _cleanup_watchlist_if_oversized(self, max_size=10):
-        """Remove most inactive non-holding tickers when watchlist size exceeds max_size."""
+    def _record_hourly_performance_snapshot(self, panic_score=0):
+        """Stores a once-per-heavy-cycle portfolio snapshot for later P/L review."""
+        try:
+            acc_data = self.broker.get_account_sync_data()
+            if acc_data:
+                cash_balance = float(acc_data.get("cash", 0.0))
+                net_worth = float(acc_data.get("equity", cash_balance))
+            else:
+                account = self.db.get_account_status()
+                cash_balance = float(account.get("current_balance", 0.0))
+                net_worth = float(account.get("equity_value", cash_balance))
+
+            holdings_value = max(0.0, net_worth - cash_balance)
+
+            previous_snapshot = self.db.get_latest_hourly_snapshot()
+            if previous_snapshot:
+                baseline_worth = float(previous_snapshot.get("net_worth", net_worth))
+            else:
+                baseline_worth = self.hourly_opening_net_worth if self.hourly_opening_net_worth is not None else net_worth
+                if self.hourly_opening_net_worth is None:
+                    self.hourly_opening_net_worth = net_worth
+
+            profit_loss = net_worth - float(baseline_worth)
+
+            self.db.log_hourly_snapshot(
+                cash_balance=cash_balance,
+                holdings_value=holdings_value,
+                net_worth=net_worth,
+                profit_loss=profit_loss,
+                panic_score=panic_score,
+                note="heavy_cycle_snapshot",
+            )
+            logger.info(f"📈 Hourly snapshot saved | Net worth: ${net_worth:.2f} | P/L: ${profit_loss:.2f}")
+        except Exception as e:
+            logger.warning(f"⚠️ Unable to save hourly performance snapshot: {e}")
+
+    def _cleanup_watchlist_if_oversized(self, max_size=10, min_days_to_keep=7):
+        """
+        Remove older non-holding tickers when watchlist size exceeds max_size.
+        Enforces a strict minimum tracking window (default 7 days) to ensure
+        high-quality continuous data for RL training.
+        """
         snapshot = self.db.get_watchlist_snapshot()
         current_size = len(snapshot)
 
@@ -250,11 +329,12 @@ class TradingCoordinator:
                 self.db.remove_from_watchlist(ticker)
                 logger.info(f"🧹 Removed inactive ticker from watchlist: {ticker}")
 
-    def _discover_new_stocks(self):
+    def _discover_new_stocks(self, news_items=None):
         """Scan market for new trading opportunities."""
         try:
             self._cleanup_watchlist_if_oversized(max_size=10)
-            news_items = self.fetcher.get_random_market_news(limit=5)
+            if news_items is None:
+                news_items = self.fetcher.get_random_market_news(limit=5)
             current_watchlist = set(self.db.get_active_watchlist())
             
             for item in news_items:

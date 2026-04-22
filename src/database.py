@@ -24,6 +24,20 @@ class DatabaseManager:
         }
         self.supabase.table("user_account").update(data).eq("id", 1).execute()
 
+    def log_transaction(self, symbol, trade_type, quantity, price, fees=0.0, timestamp=None):
+        """Stores each executed BUY or SELL in the transactions ledger."""
+        data = {
+            "symbol": symbol,
+            "trade_type": trade_type,
+            "quantity": float(quantity),
+            "price": float(price),
+            "fees": float(fees),
+        }
+        if timestamp is not None:
+            data["timestamp"] = timestamp
+
+        self.supabase.table("transactions").insert(data).execute()
+
     # --- MACRO & REGIME ---
     def update_macro_status(self, panic_score, reason):
         """Logs the global panic level from MacroSentinel."""
@@ -86,6 +100,27 @@ class DatabaseManager:
             "model_version": "v1-pavilion-ppo"
         }
         self.supabase.table("market_signals").insert(data).execute()
+
+    def log_hourly_snapshot(self, cash_balance, holdings_value, net_worth, profit_loss, panic_score=0.0, note=""):
+        """Stores the hourly portfolio snapshot used to review profit/loss over time."""
+        data = {
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "cash_balance": float(cash_balance),
+            "holdings_value": float(holdings_value),
+            "net_worth": float(net_worth),
+            "profit_loss": float(profit_loss),
+            "panic_score": float(panic_score),
+            "note": note,
+        }
+        self.supabase.table("portfolio_snapshots").insert(data).execute()
+
+    def get_transactions(self, symbol=None, limit=500):
+        """Returns recent transaction rows for reporting or debugging."""
+        query = self.supabase.table("transactions").select("*").order("timestamp", desc=True).limit(limit)
+        if symbol:
+            query = query.eq("symbol", symbol)
+        res = query.execute()
+        return res.data or []
 
     def get_training_data(self):
         """Pulls all signals and transforms for RL training pipeline."""
